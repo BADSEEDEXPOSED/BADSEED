@@ -19,13 +19,8 @@ const BAD_SEED_WALLET_ADDRESS = "9TyzcephhXEw67piYNc72EJtgVmbq3AZhyPFSvdfXWdr";
 const ENCODED_SEED_PHRASE =
   "YmFkIHNlZWQgZXhwZXJpbWVudCBwdWJsaWMgc2hhcmVkIHdhbGxldCBvcGVuIGNvbGxlY3RpdmUgc2lnbmFsIGNoYW9zIGJhbGFuY2UgZmx1eA==";
 
-// Obfuscated RPC configuration (reconstructed at runtime)
-const RPC_BASE = "aHR0cHM6Ly9tYWlubmV0LmhlbGl1cy1ycGMuY29tLw==";
-const RPC_PARAM = "P2FwaS1rZXk9";
-const RPC_KEY_P1 = "NjVjZmE5Zjc=";
-const RPC_KEY_P2 = "N2JmZS00NGZm";
-const RPC_KEY_P3 = "OGU5OC0yNGZmODBiMDFlOGM=";
-const SOLANA_RPC_ENDPOINT = atob(RPC_BASE) + atob(RPC_PARAM) + atob(RPC_KEY_P1) + "-" + atob(RPC_KEY_P2) + "-" + atob(RPC_KEY_P3);
+// Use Netlify Proxy for RPC to avoid CORS and hide keys
+const SOLANA_RPC_ENDPOINT = "/.netlify/functions/solana-rpc";
 
 // ===========================
 // Helper: decode base64 seed
@@ -51,25 +46,14 @@ async function solanaRpc(method, params) {
     params,
   };
 
-  // Try primary endpoint first
-  let res = await fetch(SOLANA_RPC_ENDPOINT, {
+  const res = await fetch(SOLANA_RPC_ENDPOINT, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
 
-  // If primary fails, fallback to public Solana RPC
   if (!res.ok) {
-    console.warn(`Primary RPC failed (${res.status}), falling back to public RPC`);
-    const fallbackEndpoint = "https://rpc.ankr.com/solana";
-    res = await fetch(fallbackEndpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    if (!res.ok) {
-      throw new Error(`Both RPC endpoints failed: ${res.status}`);
-    }
+    throw new Error(`Solana RPC HTTP error ${res.status}`);
   }
 
   const json = await res.json();
