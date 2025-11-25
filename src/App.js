@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
-// Generator imports removed to avoid polyfill issues
+// BADSEED AI: v1.0 - Real OpenAI Integration Active
 
 // Generator UI disabled - removed to avoid polyfill issues
 
