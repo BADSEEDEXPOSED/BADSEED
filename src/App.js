@@ -174,6 +174,26 @@ function App() {
     setShowDashboard(true);
   }
 
+  // ===========================
+  // AI Log Caching (localStorage)
+  // ===========================
+  function getCachedLog(signature) {
+    try {
+      const cached = localStorage.getItem(`badseed_ai_log_${signature}`);
+      return cached ? JSON.parse(cached) : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function saveCachedLog(signature, log) {
+    try {
+      localStorage.setItem(`badseed_ai_log_${signature}`, JSON.stringify(log));
+    } catch (e) {
+      console.warn("Failed to cache AI log:", e);
+    }
+  }
+
   async function loadWalletData() {
     if (!BAD_SEED_WALLET_ADDRESS) {
       setBalanceText("Set BAD_SEED_WALLET_ADDRESS in App.js");
@@ -192,7 +212,7 @@ function App() {
     setBalanceText("Loading…");
 
     try {
-      // getBalance -> lamports
+      // 1. Get Balance
       const balanceResult = await solanaRpc("getBalance", [
         BAD_SEED_WALLET_ADDRESS,
         { commitment: "finalized" },
@@ -201,28 +221,124 @@ function App() {
       const sol = lamports / 1_000_000_000;
       setBalanceText(`${sol.toFixed(9)} SOL`);
 
-      // getSignaturesForAddress -> recent signatures
+      // 2. Get Recent Signatures
       const sigResult = await solanaRpc("getSignaturesForAddress", [
         BAD_SEED_WALLET_ADDRESS,
-        { limit: 5 },
+        { limit: 10 }, // Increased limit to see more activity
       ]);
 
       if (!Array.isArray(sigResult) || sigResult.length === 0) {
         setTxItems([]);
-        setAiLogs([]); // no tx = no AI logs
+        setAiLogs([]);
         return;
       }
 
-      const txList = sigResult.map((entry) => ({
-        ...entry,
-        note: "Recent on-chain activity",
-      }));
+      // 3. Get Parsed Transaction Details (for USDC/SPL support)
+      const signatures = sigResult.map(s => s.signature);
+      const txDetails = await solanaRpc("getParsedTransactions", [
+        signatures,
+        { maxSupportedTransactionVersion: 0, commitment: "finalized" }
+      ]);
 
-      setTxItems(txList);
+      // Process transactions to extract useful info (amount, direction, token)
+      const processedTxs = sigResult.map((sigEntry, idx) => {
+        const detail = txDetails && txDetails[idx] ? txDetails[idx] : null;
+        let type = "Unknown";
+        let amount = "";
+        let direction = "";
+        let token = "SOL";
 
-      // Fetch AI logs from OpenAI via Netlify function
-      const logs = await fetchAiLogsForTransactions(txList, sol);
+        if (detail) {
+          const meta = detail.meta;
+          const transaction = detail.transaction;
+
+          // Check for SOL balance change
+          const accountIndex = transaction.message.accountKeys.findIndex(
+            k => (k.pubkey || k) === BAD_SEED_WALLET_ADDRESS
+          );
+
+          if (accountIndex !== -1 && meta) {
+            const pre = meta.preBalances[accountIndex];
+            const post = meta.postBalances[accountIndex];
+            const diff = post - pre;
+
+            if (diff !== 0) {
+              const solDiff = diff / 1_000_000_000;
+              direction = solDiff > 0 ? "IN" : "OUT";
+              amount = Math.abs(solDiff).toFixed(4);
+              type = "Transfer";
+            }
+          }
+
+          // Check for Token balance changes (USDC, etc)
+          if (meta && meta.preTokenBalances && meta.postTokenBalances) {
+            // Simple logic: find any token balance change for this wallet
+            // This is a simplification; robust parsing is complex
+            const preToken = meta.preTokenBalances.find(b => b.owner === BAD_SEED_WALLET_ADDRESS);
+            const postToken = meta.postTokenBalances.find(b => b.owner === BAD_SEED_WALLET_ADDRESS);
+
+            if (preToken || postToken) {
+              const preAmt = preToken ? preToken.uiTokenAmount.uiAmount : 0;
+              const postAmt = postToken ? postToken.uiTokenAmount.uiAmount : 0;
+              const tokenDiff = postAmt - preAmt;
+
+              if (tokenDiff !== 0) {
+                direction = tokenDiff > 0 ? "IN" : "OUT";
+                amount = Math.abs(tokenDiff).toFixed(2);
+                token = "SPL"; // Could look up mint, but keeping it simple for now
+                type = "Token Transfer";
+                // Try to guess USDC based on decimals/mint if needed, but generic SPL is safer
+                if (postToken && postToken.mint === "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v") {
+                  token = "USDC";
+                }
+              }
+            }
+          }
+        }
+
+        return {
+          ...sigEntry,
+          type,
+          amount,
+          direction,
+          token,
+          note: "On-chain activity"
+        };
+      });
+
+      setTxItems(processedTxs);
+
+      // 4. AI Logs with Caching
+      // Check cache first
+      const logs = [];
+      const txsToFetch = [];
+      const txsToFetchIndices = [];
+
+      processedTxs.forEach((tx, i) => {
+        const cached = getCachedLog(tx.signature);
+        if (cached) {
+          logs[i] = cached;
+        } else {
+          logs[i] = null; // Placeholder
+          txsToFetch.push(tx);
+          txsToFetchIndices.push(i);
+        }
+      });
+
+      if (txsToFetch.length > 0) {
+        // Fetch only missing logs
+        const fetchedLogs = await fetchAiLogsForTransactions(txsToFetch, sol);
+
+        // Merge and save to cache
+        fetchedLogs.forEach((log, fetchIdx) => {
+          const originalIdx = txsToFetchIndices[fetchIdx];
+          logs[originalIdx] = log;
+          saveCachedLog(processedTxs[originalIdx].signature, log);
+        });
+      }
+
       setAiLogs(logs);
+
     } catch (err) {
       console.error("Error loading Solana data:", err);
       setBalanceText("Error loading balance");
@@ -367,6 +483,10 @@ function App() {
                     ? aiLogs[i]
                     : "[AI_LOG] awaiting interpretation…";
 
+                // Direction colors
+                const dirColor = tx.direction === "IN" ? "#a0ffa0" : "#d4a5a5";
+                const dirArrow = tx.direction === "IN" ? "↓ IN" : "↑ OUT";
+
                 return (
                   <li key={tx.signature || `tx-${i}`} className="tx-item tx-row">
                     {/* Left: existing tx details */}
@@ -383,6 +503,13 @@ function App() {
                           {tx.signature ? `${tx.signature.slice(0, 20)}...${tx.signature.slice(-20)}` : "(no signature)"}
                         </a>
                       </div>
+
+                      {/* Amount & Direction (New) */}
+                      {tx.amount && (
+                        <div style={{ marginBottom: "0.25rem", color: dirColor, fontWeight: "bold" }}>
+                          {dirArrow} {tx.amount} {tx.token}
+                        </div>
+                      )}
 
                       {/* Status, Slot, Time on one line */}
                       <div style={{ marginBottom: "0.25rem", fontSize: "0.9rem" }}>
