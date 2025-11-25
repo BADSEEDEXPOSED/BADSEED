@@ -1,5 +1,17 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { queueMemo, scheduleDailyPosts, getQueue, getDailyPostCount, getNextPostTime } from "./xPosting";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
+import { Transaction, SystemProgram, TransactionInstruction, PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
+
+// BAD SEED wallet address (receiver)
+const BAD_SEED_WALLET_ADDRESS = "9TyzcephhXEw67piYNc72EJtgVmbq3AZhyPFSvdfXWdr";
+
+// Solana RPC endpoint (mainnet)
+// 2) SOLANA_RPC_ENDPOINT is defined later in the file (using Helius)
+
+// Memo program ID
+const MEMO_PROGRAM_ID = new PublicKey("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr");
 
 // ---------- localStorage cache helpers ----------
 function getCachedLog(signature) {
@@ -55,10 +67,8 @@ function copyBlacklistToClipboard(blacklist) {
 // CONFIG: SEED + SOLANA
 // ===========================
 
-// 1) BAD SEED wallet Solana address
-// TODO: after you choose a seed you like with the generator below,
-//       paste the resulting public key here.
-const BAD_SEED_WALLET_ADDRESS = "9TyzcephhXEw67piYNc72EJtgVmbq3AZhyPFSvdfXWdr";
+// 1) BAD_SEED_WALLET_ADDRESS is defined at the top of the file
+
 
 // 2) Seed phrase (base64-encoded to avoid plain text in source)
 //
@@ -184,6 +194,17 @@ function App() {
   const [blacklistedTxs, setBlacklistedTxs] = useState([]);
   const [newBlacklistAddress, setNewBlacklistAddress] = useState("");
 
+  // Wallet connection
+  const { publicKey, sendTransaction } = useWallet();
+
+  // Send message modal state
+  const [showSendModal, setShowSendModal] = useState(false);
+  const [memoText, setMemoText] = useState("");
+  const [solAmount, setSolAmount] = useState("0.001");
+  const [isSending, setIsSending] = useState(false);
+  const [sendError, setSendError] = useState("");
+  const [sendSuccess, setSendSuccess] = useState(false);
+
   // DEV generator state
   // Dev generator state removed
 
@@ -252,6 +273,87 @@ function App() {
 
     // Trigger the transition to the dashboard
     setShowDashboard(true);
+  }
+
+  // Send transaction with SOL + memo
+  async function handleSendTransaction() {
+    setSendError("");
+    setSendSuccess(false);
+
+    // Validation
+    if (!memoText.trim()) {
+      setSendError("Please enter a message");
+      return;
+    }
+
+    const amount = parseFloat(solAmount);
+    if (isNaN(amount) || amount < 0.001) {
+      setSendError("Amount must be at least 0.001 SOL");
+      return;
+    }
+
+    if (!publicKey) {
+      setSendError("Please connect your wallet first");
+      return;
+    }
+
+    setIsSending(true);
+
+    try {
+      // Create connection (use same RPC endpoint as dashboard)
+      const { Connection } = await import("@solana/web3.js");
+      const connection = new Connection(SOLANA_RPC_ENDPOINT);
+
+      // Create transaction
+      const transaction = new Transaction();
+
+      // 1. Add SOL transfer instruction
+      const lamports = Math.floor(amount * LAMPORTS_PER_SOL);
+      const transferIx = SystemProgram.transfer({
+        fromPubkey: publicKey,
+        toPubkey: new PublicKey(BAD_SEED_WALLET_ADDRESS),
+        lamports,
+      });
+      transaction.add(transferIx);
+
+      // 2. Add memo instruction
+      const memoData = Buffer.from(memoText.trim(), "utf-8");
+      const memoIx = new TransactionInstruction({
+        keys: [],
+        programId: MEMO_PROGRAM_ID,
+        data: memoData,
+      });
+      transaction.add(memoIx);
+
+      // Get recent blockhash
+      const { blockhash } = await connection.getLatestBlockhash();
+      transaction.recentBlockhash = blockhash;
+      transaction.feePayer = publicKey;
+
+      // Send transaction (wallet will sign)
+      const signature = await sendTransaction(transaction, connection);
+
+      console.log("Transaction sent:", signature);
+
+      // Success
+      setSendSuccess(true);
+      setTimeout(() => {
+        setShowSendModal(false);
+        setMemoText("");
+        setSolAmount("0.001");
+        setSendSuccess(false);
+      }, 2000);
+
+    } catch (err) {
+      console.error("Transaction error:", err);
+      if (err.message && err.message.includes("User rejected")) {
+        setSendError("Transaction cancelled");
+      } else {
+        setSendError(err.message || "Transaction failed. Please try again.");
+      }
+    } finally {
+      setIsSending(false);
+    }
   }
 
 
@@ -487,6 +589,19 @@ function App() {
 
   return (
     <div id="app">
+      {/* Wallet Controls - Fixed top right corner of page */}
+      <div className="wallet-controls">
+        <button
+          className="send-message-btn"
+          onClick={() => setShowSendModal(true)}
+          disabled={!publicKey || isSending}
+          style={{ display: publicKey ? 'block' : 'none' }}
+        >
+          Send Message to the Seed
+        </button>
+        <WalletMultiButton />
+      </div>
+
       {/* LOGO */}
       <header className="site-header">
         <img src="/logo.gif" alt="Bad Seed Logo" className="logo" />
@@ -680,6 +795,7 @@ function App() {
                       </div>
                     </div>
 
+
                     {/* Right: AI terminal toast */}
                     <div className="tx-ai-log">
                       <div className="tx-ai-header">[BADSEED AI LOG]</div>
@@ -850,6 +966,80 @@ function App() {
           )}
         </section>
       </main>
+      {/* Send Message Modal */}
+      {showSendModal && (
+        <div className="modal-overlay" onClick={(e) => {
+          // Only close if clicking on the overlay itself, not the modal content
+          if (e.target.className === 'modal-overlay') {
+            // Don't close - per requirements
+          }
+        }}>
+          <div className="send-modal" onClick={(e) => e.stopPropagation()}>
+            <h2>Send a Transmission to the Seed</h2>
+
+            <div style={{ marginBottom: "1rem" }}>
+              <label>Message (Memo)</label>
+              <textarea
+                value={memoText}
+                onChange={(e) => setMemoText(e.target.value)}
+                placeholder="Type your message here..."
+                maxLength={200}
+              />
+              <div style={{ textAlign: "right", fontSize: "0.8rem", color: "#666" }}>
+                {memoText.length}/200
+              </div>
+            </div>
+
+            <div style={{ marginBottom: "1rem" }}>
+              <label>Amount (SOL)</label>
+              <input
+                type="number"
+                step="0.001"
+                min="0.001"
+                value={solAmount}
+                onChange={(e) => setSolAmount(e.target.value)}
+              />
+              <div style={{ fontSize: "0.8rem", color: "#666", marginTop: "0.2rem" }}>
+                Minimum: 0.001 SOL
+              </div>
+            </div>
+
+            {sendError && (
+              <div className="modal-error">
+                {sendError}
+              </div>
+            )}
+
+            {sendSuccess && (
+              <div className="modal-success">
+                Transmission sent successfully!
+              </div>
+            )}
+
+            <div className="modal-buttons">
+              <button
+                className="modal-btn modal-btn-cancel"
+                onClick={() => setShowSendModal(false)}
+                disabled={isSending}
+              >
+                Cancel
+              </button>
+              <button
+                className="modal-btn modal-btn-send"
+                onClick={handleSendTransaction}
+                disabled={isSending}
+              >
+                {isSending ? "Sending..." : "Send Transmission"}
+              </button>
+            </div>
+
+            <div className="modal-info">
+              This will send SOL to the BAD SEED wallet with your message attached on-chain.
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

@@ -1,9 +1,39 @@
 const webpack = require('webpack');
 
 module.exports = function override(config) {
-    // Minimal polyfills - only what's needed for basic React app
+    const fallback = config.resolve.fallback || {};
+    Object.assign(fallback, {
+        "crypto": require.resolve("crypto-browserify"),
+        "stream": require.resolve("stream-browserify"),
+        "assert": require.resolve("assert"),
+        "http": require.resolve("stream-http"),
+        "https": require.resolve("https-browserify"),
+        "os": require.resolve("os-browserify"),
+        "url": require.resolve("url"),
+        "zlib": require.resolve("browserify-zlib"),
+        "process": require.resolve("process/browser"),
+        "vm": require.resolve("vm-browserify"),
+    });
+    config.resolve.fallback = fallback;
+
+    // Fix for fully specified imports and ensure polyfills are used
+    config.resolve.alias = {
+        ...config.resolve.alias,
+        "process/browser": "process/browser.js",
+        "crypto": "crypto-browserify",
+        "stream": "stream-browserify",
+        "assert": "assert",
+        "http": "stream-http",
+        "https": "https-browserify",
+        "os": "os-browserify",
+        "url": "url",
+        "zlib": "browserify-zlib",
+        "vm": "vm-browserify"
+    };
+
     config.plugins = (config.plugins || []).concat([
         new webpack.ProvidePlugin({
+            process: 'process/browser.js',
             Buffer: ['buffer', 'Buffer']
         })
     ]);
