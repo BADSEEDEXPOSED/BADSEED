@@ -51,14 +51,25 @@ async function solanaRpc(method, params) {
     params,
   };
 
-  const res = await fetch(SOLANA_RPC_ENDPOINT, {
+  // Try primary endpoint first
+  let res = await fetch(SOLANA_RPC_ENDPOINT, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
 
+  // If primary fails, fallback to public Solana RPC
   if (!res.ok) {
-    throw new Error(`Solana RPC HTTP error ${res.status}`);
+    console.warn(`Primary RPC failed (${res.status}), falling back to public RPC`);
+    const fallbackEndpoint = "https://api.mainnet-beta.solana.com";
+    res = await fetch(fallbackEndpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      throw new Error(`Both RPC endpoints failed: ${res.status}`);
+    }
   }
 
   const json = await res.json();
