@@ -1,10 +1,7 @@
 import React, { useMemo, useState, useEffect } from "react";
 // Generator imports removed to avoid polyfill issues
 
-// ===========================
-// DEV FLAG: show/hide generator UI
-// ===========================
-const DEV_ENABLE_GENERATOR = false; // Disabled generator UI
+// Generator UI disabled - removed to avoid polyfill issues
 
 // ===========================
 // CONFIG: SEED + SOLANA
@@ -114,7 +111,7 @@ function fetchAiLogsForTransactions(transactions, balanceSol) {
     if (hasMemo) {
       const memoLower = tx.memo.toLowerCase();
       const hasKeywords = MEMO_KEYWORDS.some(kw => memoLower.includes(kw));
-      const isStructured = /[{}\[\]=:]/.test(tx.memo) || tx.memo.includes('=');
+      const isStructured = /[{}[\]=:]/.test(tx.memo) || tx.memo.includes('=');
 
       if (hasKeywords) {
         // ECHO MODE
