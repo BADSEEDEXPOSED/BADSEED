@@ -69,72 +69,59 @@ async function solanaRpc(method, params) {
   return json.result;
 }
 
-// Generate AI narrative logs for transactions (MOCK - inline implementation)
-function fetchAiLogsForTransactions(transactions, balanceSol) {
+// Fetch AI narrative logs from Netlify serverless function (calls OpenAI)
+async function fetchAiLogsForTransactions(transactions, balanceSol) {
   if (!transactions || transactions.length === 0) {
     return [];
   }
 
-  const SEED_MESSAGES = [
-    "Faint movement registered.",
-    "The seed shifts slightly in the dark.",
-    "A small pulse nudges the seed.",
-    "Gentle current detected.",
-    "Barely perceptible flux.",
-    "Quiet signal passes through.",
-    "Minor disturbance noted.",
-    "Patterns emerge from stillness."
-  ];
+  try {
+    const response = await fetch("/.netlify/functions/ai-narrative", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        balanceSol,
+        transactions: transactions.map((tx) => ({
+          signature: tx.signature || "",
+          slot: tx.slot ?? null,
+          blockTime: tx.blockTime ?? null,
+          confirmationStatus: tx.confirmationStatus || "unknown",
+          err: tx.err || null,
+          memo: tx.memo || null
+        }))
+      })
+    });
 
-  const TRANSMISSION_MESSAGES = [
-    "first contact — the seed listens.",
-    "external message intercepted.",
-    "transmission enters the void.",
-    "signal crosses the threshold.",
-    "words arrive from outside.",
-    "someone speaks to the experiment."
-  ];
-
-  const MEMO_KEYWORDS = ["seed", "grow", "evolve", "start", "life", "signal", "help", "guide", "contribute", "bad"];
-
-  function generateLog(tx, index) {
-    const hasError = tx.err !== null;
-    const hasMemo = tx.memo && tx.memo.length > 0;
-    const slot = tx.slot || "unknown";
-
-    // Error handling
-    if (hasError) {
-      return `[SEED_LOG] slot=${slot} status=ERROR note="Transaction failed — the seed rejects this pattern."`;
+    if (!response.ok) {
+      console.error("AI narrative endpoint error:", response.status);
+      return transactions.map((tx, idx) =>
+        `[SEED_LOG] slot=${tx.slot ?? "?"} idx=${idx} note="AI endpoint unavailable."`
+      );
     }
 
-    // Memo handling - TRANSMISSION MODE
-    if (hasMemo) {
-      const memoLower = tx.memo.toLowerCase();
-      const hasKeywords = MEMO_KEYWORDS.some(kw => memoLower.includes(kw));
-      const isStructured = /[{}[\]=:]/.test(tx.memo) || tx.memo.includes('=');
+    const data = await response.json();
 
-      if (hasKeywords) {
-        // ECHO MODE
-        const snippet = tx.memo.length > 25 ? tx.memo.slice(0, 25) + "..." : tx.memo;
-        return `[ECHO] "${snippet}"\n[INTERPRET] external source acknowledges the seed as organism`;
-      } else if (isStructured) {
-        // BROADCAST MODE
-        return `[BROADCAST] structured payload found\n[INTERPRET] they may be testing indicators`;
-      } else {
-        // Standard TRANSMISSION
-        const msg = TRANSMISSION_MESSAGES[index % TRANSMISSION_MESSAGES.length];
-        const snippet = tx.memo.length > 20 ? `"${tx.memo.slice(0, 20)}..."` : `"${tx.memo}"`;
-        return `[TRANSMISSION] memo detected: ${snippet}\n[INTERPRET] ${msg}`;
-      }
+    if (!data || !Array.isArray(data.logs)) {
+      console.warn("AI narrative returned unexpected format:", data);
+      return transactions.map((tx, idx) =>
+        `[SEED_LOG] slot=${tx.slot ?? "?"} idx=${idx} note="AI format error."`
+      );
     }
 
-    // Standard mode - no memo
-    const impact = index % 3 === 0 ? "low" : index % 3 === 1 ? "medium" : "minimal";
-    const note = SEED_MESSAGES[index % SEED_MESSAGES.length];
-    return `[SEED_LOG] slot=${slot} impact=${impact} note="${note}"`;
+    // Normalize logs to match transaction count
+    return transactions.map((_, idx) => {
+      return typeof data.logs[idx] === "string"
+        ? data.logs[idx]
+        : `[SEED_LOG] slot=${transactions[idx].slot ?? "?"} note="AI log missing."`;
+    });
+  } catch (err) {
+    console.error("Error fetching AI logs:", err);
+    return transactions.map((tx, idx) =>
+      `[SEED_LOG] slot=${tx.slot ?? "?"} idx=${idx} note="AI connection failed."`
+    );
   }
-
-  return transactions.map((tx, i) => generateLog(tx, i));
 }
 
 function App() {
@@ -233,8 +220,8 @@ function App() {
 
       setTxItems(txList);
 
-      // Generate AI logs for transactions (synchronous mock)
-      const logs = fetchAiLogsForTransactions(txList, sol);
+      // Fetch AI logs from OpenAI via Netlify function
+      const logs = await fetchAiLogsForTransactions(txList, sol);
       setAiLogs(logs);
     } catch (err) {
       console.error("Error loading Solana data:", err);
