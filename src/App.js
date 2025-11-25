@@ -201,22 +201,6 @@ function App() {
     setShowDashboard(true);
   }
 
-  // ===========================
-  // X.com API stub for memo forwarding (future integration)
-  // ===========================
-  const X_API_URL = process.env.REACT_APP_X_API_URL || "https://example.com/x-api";
-
-  async function sendMemoToX(memo, aiLog) {
-    try {
-      await fetch(X_API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ memo, aiLog }),
-      });
-    } catch (e) {
-      console.warn("Failed to forward memo to X.com API:", e);
-    }
-  }
 
   // After AI logs are fetched and cached, forward any new memos
   // This is called inside loadWalletData after setAiLogs(logs);
