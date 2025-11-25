@@ -36,7 +36,7 @@ export function queueMemo(memo, aiLog) {
     if (posted.has(hash)) return; // already posted, ignore
 
     const queue = load(QUEUE_KEY) || [];
-    queue.push({ memo, aiLog, hash });
+    queue.push({ memo, aiLog, hash, timestamp: Date.now() });
     save(QUEUE_KEY, queue);
 }
 
@@ -79,15 +79,24 @@ export async function processQueue() {
 
 function formatTweet(items) {
     const maxLen = 280;
-    let tweet = "";
+    const header = "🌱 BADSEED TRANSMISSION LOG 🌱\n\n";
+    let body = "";
+
     for (const { memo, aiLog } of items) {
-        const pair = `${memo} → ${aiLog}`;
-        const remaining = maxLen - tweet.length - (tweet ? 1 : 0);
+        const line = `📨 "${memo}"\n→ ${aiLog}\n\n`;
+        const remaining = maxLen - header.length - body.length;
         if (remaining <= 0) break;
-        const truncated = pair.length > remaining ? pair.slice(0, remaining - 1) + "…" : pair;
-        tweet = tweet ? `${tweet} ${truncated}` : truncated;
+
+        if (line.length > remaining) {
+            // Truncate gracefully
+            const truncated = line.slice(0, remaining - 2) + "…";
+            body += truncated;
+            break;
+        }
+        body += line;
     }
-    return tweet;
+
+    return (header + body).slice(0, maxLen);
 }
 
 export function scheduleDailyPosts() {
@@ -106,4 +115,36 @@ export function scheduleDailyPosts() {
     };
     schedule(nextMidnight);
     schedule(nextNoon);
+}
+
+// ---------- Queue inspection helpers ----------
+export function getQueue() {
+    return load(QUEUE_KEY) || [];
+}
+
+export function getDailyPostCount() {
+    const today = new Date().toISOString().slice(0, 10);
+    let counter = load(COUNTER_KEY) || { date: today, count: 0 };
+    if (counter.date !== today) {
+        return 0;
+    }
+    return counter.count;
+}
+
+export function getNextPostTime() {
+    const now = new Date();
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+
+    const midnight = new Date(today);
+    midnight.setUTCDate(midnight.getUTCDate() + 1);
+
+    const noon = new Date(today);
+    noon.setUTCHours(12, 0, 0, 0);
+
+    if (now.getTime() < noon.getTime()) {
+        return noon;
+    } else {
+        return midnight;
+    }
 }

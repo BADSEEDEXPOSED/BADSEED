@@ -375,3 +375,176 @@ body::before {
     max-width: 100%;
   }
 }
+/* ===========================
+   X.com Post Queue Styles
+   =========================== */
+
+.post-queue-section {
+  margin-top: 2rem;
+}
+
+.queue-status {
+  display: flex;
+  gap: 1.5rem;
+  justify-content: space-around;
+  padding: 1rem;
+  background: rgba(0, 255, 0, 0.05);
+  border: 1px solid rgba(0, 255, 0, 0.2);
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+}
+
+.queue-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.queue-stat-label {
+  font-size: 0.8rem;
+  color: #a0ffa0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.queue-stat-value {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #00ff00;
+  font-family: 'Courier New', monospace;
+}
+
+.queue-items {
+  margin-bottom: 1.5rem;
+}
+
+.queue-empty {
+  padding: 2rem;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: #c0c0c0;
+}
+
+.queue-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.queue-item {
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(0, 255, 0, 0.3);
+  border-radius: 8px;
+  padding: 1rem;
+  transition: all 0.3s ease;
+}
+
+.queue-item:hover {
+  background: rgba(0, 255, 0, 0.08);
+  border-color: rgba(0, 255, 0, 0.5);
+  box-shadow: 0 0 15px rgba(0, 255, 0, 0.15);
+}
+
+.queue-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(0, 255, 0, 0.2);
+}
+
+.queue-item-number {
+  font-weight: 700;
+  color: #00ff00;
+  font-family: 'Courier New', monospace;
+}
+
+.queue-item-time {
+  font-size: 0.8rem;
+  color: #a0ffa0;
+  font-family: 'Courier New', monospace;
+}
+
+.queue-item-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.queue-memo,
+.queue-ai {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.queue-label {
+  font-size: 0.75rem;
+  color: #a0ffa0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.queue-text {
+  color: #c0c0c0;
+  line-height: 1.5;
+  padding-left: 1.5rem;
+  word-break: break-word;
+}
+
+.queue-memo .queue-text {
+  color: #ffffff;
+  font-style: italic;
+}
+
+.queue-ai .queue-text {
+  color: #00ff00;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+}
+
+.queue-info {
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  color: #a0ffa0;
+}
+
+.queue-info p {
+  margin: 0.5rem 0;
+}
+
+.queue-info p:first-child {
+  margin-top: 0;
+}
+
+.queue-info p:last-child {
+  margin-bottom: 0;
+}
+
+/* Responsive tweaks for queue */
+@media (max-width: 640px) {
+  .queue-status {
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .queue-stat {
+    flex-direction: row;
+    justify-content: space-between;
+    width: 100%;
+    padding: 0.5rem;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 4px;
+  }
+}

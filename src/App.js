@@ -1,5 +1,24 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { queueMemo, scheduleDailyPosts } from "./xPosting";
+import { queueMemo, scheduleDailyPosts, getQueue, getDailyPostCount, getNextPostTime } from "./xPosting";
+
+// ---------- localStorage cache helpers ----------
+function getCachedLog(signature) {
+  try {
+    const cached = localStorage.getItem(`badseed_ai_log_${signature}`);
+    return cached ? JSON.parse(cached) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function saveCachedLog(signature, log) {
+  try {
+    localStorage.setItem(`badseed_ai_log_${signature}`, JSON.stringify(log));
+  } catch (e) {
+    console.warn("Failed to cache AI log:", e);
+  }
+}
+// // duplicate import removed // duplicate removed
 // BADSEED AI: v1.0 - Real OpenAI Integration Active
 
 // Generator UI disabled - removed to avoid polyfill issues
@@ -130,6 +149,9 @@ function App() {
   const [balanceText, setBalanceText] = useState("Loading…");
   const [txItems, setTxItems] = useState([]);
   const [aiLogs, setAiLogs] = useState([]); // AI terminal logs per transaction
+  const [postQueue, setPostQueue] = useState([]); // X.com post queue
+  const [dailyPostCount, setDailyPostCount] = useState(0);
+  const [nextPostTime, setNextPostTime] = useState(null);
 
   // DEV generator state
   // Dev generator state removed
@@ -154,6 +176,8 @@ function App() {
       loadWalletData();
       // start the twice‑daily X.com posting scheduler
       scheduleDailyPosts();
+      // Update queue display
+      updateQueueDisplay();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showDashboard]);
@@ -195,18 +219,24 @@ function App() {
   }
 
   // After AI logs are fetched and cached, forward any new memos
-  // This is called inside loadWalletData after setAiLogs(logs)
-  async function forwardMemosIfNeeded(processedTxs) {
+  // This is called inside loadWalletData after setAiLogs(logs);
+  async function forwardMemosIfNeeded(processedTxs, logsArray) {
     for (const tx of processedTxs) {
       if (tx.memo) {
         const cached = getCachedLog(tx.signature);
         if (!cached) {
-          const aiLog = logs[processedTxs.indexOf(tx)];
+          const aiLog = logsArray[processedTxs.indexOf(tx)];
           // Queue memo + AI log for later X.com posting
           queueMemo(tx.memo, aiLog);
         }
       }
     }
+  }
+
+  function updateQueueDisplay() {
+    setPostQueue(getQueue());
+    setDailyPostCount(getDailyPostCount());
+    setNextPostTime(getNextPostTime());
   }
 
   async function loadWalletData() {
@@ -364,6 +394,10 @@ function App() {
       }
 
       setAiLogs(logs);
+      // Forward any new memos to X.com after logs are stored
+      await forwardMemosIfNeeded(processedTxs, logs);
+      // Update queue display
+      updateQueueDisplay();
 
     } catch (err) {
       console.error("Error loading Solana data:", err);
@@ -590,6 +624,64 @@ function App() {
               })
             )}
           </ul>
+        </section>
+
+        {/* X.com Post Queue section */}
+        <section className="dashboard-card dashboard-card--glow post-queue-section">
+          <h2 className="section-title">🌱 X.com Post Queue</h2>
+
+          <div className="queue-status">
+            <div className="queue-stat">
+              <span className="queue-stat-label">Posts Today:</span>
+              <span className="queue-stat-value">{dailyPostCount} / 2</span>
+            </div>
+            <div className="queue-stat">
+              <span className="queue-stat-label">Queued:</span>
+              <span className="queue-stat-value">{postQueue.length}</span>
+            </div>
+            <div className="queue-stat">
+              <span className="queue-stat-label">Next Post:</span>
+              <span className="queue-stat-value">
+                {nextPostTime ? new Date(nextPostTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' }) : 'N/A'}
+              </span>
+            </div>
+          </div>
+
+          <div className="queue-items">
+            {postQueue.length === 0 ? (
+              <div className="queue-empty">
+                <p>No posts queued. Memos will automatically queue when new transactions with memos are detected.</p>
+              </div>
+            ) : (
+              <ul className="queue-list">
+                {postQueue.map((item, idx) => (
+                  <li key={idx} className="queue-item">
+                    <div className="queue-item-header">
+                      <span className="queue-item-number">#{idx + 1}</span>
+                      <span className="queue-item-time">
+                        {item.timestamp ? new Date(item.timestamp).toLocaleString() : 'N/A'}
+                      </span>
+                    </div>
+                    <div className="queue-item-content">
+                      <div className="queue-memo">
+                        <span className="queue-label">📨 Memo:</span>
+                        <span className="queue-text">"{item.memo}"</span>
+                      </div>
+                      <div className="queue-ai">
+                        <span className="queue-label">→ AI:</span>
+                        <span className="queue-text">{item.aiLog}</span>
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div className="queue-info">
+            <p>🕒 Posts are sent twice daily (UTC midnight & noon). Limit: 2 posts/day.</p>
+            <p>🔄 Duplicate memos are automatically filtered.</p>
+          </div>
         </section>
       </main>
     </div>
