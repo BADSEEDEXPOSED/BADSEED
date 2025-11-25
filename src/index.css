@@ -323,16 +323,16 @@ body::before {
 
 /* Left side (existing info) grows more */
 .tx-main {
-  flex: 1.4;
+  flex: 2;
   min-width: 0;
   /* allows flexbox text truncation if needed */
 }
 
-/* Right side: tiny terminal-style log */
+/* Right side: tiny terminal-style log - NARROWER */
 .tx-ai-log {
-  flex: 1;
-  max-width: 280px;
-  min-width: 200px;
+  flex: 0.8;
+  max-width: 220px;
+  min-width: 180px;
   border-radius: 10px;
   background: radial-gradient(circle at 0% 0%, #151515 0, #020202 70%);
   border: 1px solid rgba(140, 140, 140, 0.6);
@@ -344,17 +344,18 @@ body::before {
   flex-direction: column;
   font-family: "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono",
     "Courier New", monospace;
-  font-size: 0.72rem;
+  font-size: 0.7rem;
   color: #dcdcdc;
 }
 
-/* Tiny header line inside terminal block */
+/* Tiny header line inside terminal block - WHITE */
 .tx-ai-header {
-  color: #a0ffa0;
+  color: #ffffff;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  font-size: 0.65rem;
-  margin-bottom: 2px;
+  font-size: 0.62rem;
+  margin-bottom: 3px;
+  font-weight: 600;
 }
 
 /* Body text for AI commentary */

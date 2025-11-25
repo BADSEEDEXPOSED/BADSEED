@@ -429,7 +429,7 @@ function App() {
 
                     {/* Right: AI terminal toast */}
                     <div className="tx-ai-log">
-                      <div className="tx-ai-header">[AI_LOG]</div>
+                      <div className="tx-ai-header">[BADSEED AI LOG]</div>
                       <div className="tx-ai-body">{aiLog}</div>
                     </div>
                   </li>

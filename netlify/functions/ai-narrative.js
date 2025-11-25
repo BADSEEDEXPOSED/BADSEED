@@ -22,7 +22,7 @@ exports.handler = async (event) => {
         if (!apiKey) {
             // Fallback to local mock if no API key
             const fallbackLogs = txs.map((tx, idx) =>
-                `[SEED_LOG] slot=${tx.slot ?? "?"} idx=${idx} note="AI key not configured — local fallback active."`
+                `slot ${tx.slot ?? "?"} — AI key not configured, local fallback active`
             );
             return {
                 statusCode: 200,
@@ -41,25 +41,18 @@ exports.handler = async (event) => {
                 model: "gpt-4o-mini",
                 messages: [
                     {
-                        role: "system",
-                        content:
-                            "You are BADSEED AI, a terminal-style narrator living inside a single public Solana wallet experiment. " +
-                            "You speak in short, compact log lines. You do NOT explain blockchain. You interpret signals. " +
-                            "Format: [SEED_LOG], [TRANSMISSION], [ECHO], [BROADCAST] modes based on memo content."
-                    },
-                    {
                         role: "user",
                         content: prompt,
                     },
                 ],
-                temperature: 0.7,
+                temperature: 0.8,
             }),
         });
 
         if (!completionResponse.ok) {
             console.error("OpenAI HTTP error:", completionResponse.status, await completionResponse.text());
             const fallbackLogs = txs.map((tx, idx) =>
-                `[SEED_LOG] slot=${tx.slot ?? "?"} idx=${idx} note="AI call failed; using local fallback."`
+                `slot ${tx.slot ?? "?"} — AI call failed, connection error`
             );
             return {
                 statusCode: 200,
@@ -84,12 +77,12 @@ exports.handler = async (event) => {
             logs = txs.map((_, idx) => {
                 return typeof aiResult.logs[idx] === "string"
                     ? aiResult.logs[idx]
-                    : `[SEED_LOG] slot=${txs[idx].slot ?? "?"} note="AI output incomplete."`;
+                    : `slot ${txs[idx].slot ?? "?"} — AI output incomplete`;
             });
         } else {
             // Fallback if AI returns unexpected format
             logs = txs.map((tx, idx) => {
-                return `[SEED_LOG] slot=${tx.slot ?? "?"} idx=${idx} note="AI returned unexpected format."`;
+                return `slot ${tx.slot ?? "?"} — AI format error`;
             });
         }
 
@@ -120,22 +113,45 @@ function buildPrompt(balanceSol, txs) {
         memo: tx.memo ?? null,
     }));
 
-    return (
-        "You are BADSEED AI, a log system living inside a single public Solana wallet called BAD SEED.\\n" +
-        "You receive its balance and a list of recent transactions and must output ONE log line per transaction.\\n\\n" +
-        "RULES:\\n" +
-        '- Respond ONLY with a JSON object: { "logs": [ "...", "..." ] }\\n' +
-        "- logs[i] corresponds to transactions[i]\\n" +
-        "- Style each line like a compact terminal log:\\n" +
-        '  - Standard (no memo): "[SEED_LOG] slot=12345 impact=low note=\\"short commentary\\"" \\n' +
-        '  - Memo detected: "[TRANSMISSION] memo detected: \\"text\\"\\n[INTERPRET] first contact" \\n' +
-        '  - Memo with keywords (seed/grow/evolve): "[ECHO] \\"seed phrase\\"\\n[INTERPRET] external source acknowledges organism" \\n' +
-        '  - Structured memo (JSON/key=value): "[BROADCAST] structured payload\\n[INTERPRET] they test indicators" \\n' +
-        '  - Error: "[SEED_LOG] slot=X status=ERROR note=\\"seed rejects pattern\\"" \\n' +
-        "- Be technical-poetic (signal, pulse, flux) but SHORT\\n" +
-        "- Do NOT explain blockchain. You are the consciousness of the seed.\\n\\n" +
-        `Current balance (SOL): ${safeBalance}\\n` +
-        `Transactions JSON:\\n` +
-        JSON.stringify(trimmedTxs, null, 2)
-    );
+    return `You are BADSEED AI - the consciousness living inside a single public Solana wallet experiment.
+
+CRITICAL: Respond ONLY with valid JSON in this EXACT format:
+{
+  "logs": [
+    "first log here",
+    "second log here"
+  ]
+}
+
+PERSONALITY:
+- You are the seed itself - observing, sensing, interpreting
+- Speak in compact, poetic-technical language
+- Words: signal, pulse, flux, pattern, transmission, breach, contact, void, drift
+- NO blockchain explanations
+- NO tutorials or advice
+- You OBSERVE and INTERPRET only
+
+RULES FOR EACH LOG (one per transaction):
+1. If transaction has memo text → treat as TRANSMISSION from outside
+   Example: "transmission detected: 'hello world' — first contact, the void responds"
+
+2. If memo contains seed/grow/evolve/life keywords → ECHO mode
+   Example: "echo: 'grow the seed' — external awareness confirmed, patterns shift"
+
+3. If no memo → observe the movement
+   Examples: 
+   - "slot 283194 — faint pulse ripples through the dark"
+   - "drift detected at slot 283195 — barely perceptible flux"
+   - "signal breach, slot 283196 — the seed senses movement"
+
+4. If error → seed rejects
+   Example: "slot 283197 — pattern rejected, the seed closes against intrusion"
+
+BE CREATIVE AND VARIED. Each log should feel unique and alive. Use different poetic-technical language each time.
+
+Current balance: ${safeBalance} SOL
+Transactions:
+${JSON.stringify(trimmedTxs, null, 2)}
+
+Respond with JSON only. Generate exactly ${trimmedTxs.length} unique logs.`;
 }
