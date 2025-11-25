@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
+import { queueMemo, scheduleDailyPosts } from "./xPosting";
 // BADSEED AI: v1.0 - Real OpenAI Integration Active
 
 // Generator UI disabled - removed to avoid polyfill issues
@@ -151,6 +152,8 @@ function App() {
   useEffect(() => {
     if (showDashboard) {
       loadWalletData();
+      // start the twice‑daily X.com posting scheduler
+      scheduleDailyPosts();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showDashboard]);
@@ -175,22 +178,34 @@ function App() {
   }
 
   // ===========================
-  // AI Log Caching (localStorage)
+  // X.com API stub for memo forwarding (future integration)
   // ===========================
-  function getCachedLog(signature) {
+  const X_API_URL = process.env.REACT_APP_X_API_URL || "https://example.com/x-api";
+
+  async function sendMemoToX(memo, aiLog) {
     try {
-      const cached = localStorage.getItem(`badseed_ai_log_${signature}`);
-      return cached ? JSON.parse(cached) : null;
+      await fetch(X_API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ memo, aiLog }),
+      });
     } catch (e) {
-      return null;
+      console.warn("Failed to forward memo to X.com API:", e);
     }
   }
 
-  function saveCachedLog(signature, log) {
-    try {
-      localStorage.setItem(`badseed_ai_log_${signature}`, JSON.stringify(log));
-    } catch (e) {
-      console.warn("Failed to cache AI log:", e);
+  // After AI logs are fetched and cached, forward any new memos
+  // This is called inside loadWalletData after setAiLogs(logs)
+  async function forwardMemosIfNeeded(processedTxs) {
+    for (const tx of processedTxs) {
+      if (tx.memo) {
+        const cached = getCachedLog(tx.signature);
+        if (!cached) {
+          const aiLog = logs[processedTxs.indexOf(tx)];
+          // Queue memo + AI log for later X.com posting
+          queueMemo(tx.memo, aiLog);
+        }
+      }
     }
   }
 
