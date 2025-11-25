@@ -791,3 +791,16 @@ body::before {
     gap: 0.5rem;
   }
 }
+
+.blacklist-btn-copy {
+  background: rgba(0, 150, 255, 0.2);
+  border: 1px solid rgba(0, 150, 255, 0.5);
+  color: #5599ff;
+  flex: 1;
+}
+
+.blacklist-btn-copy:hover {
+  background: rgba(0, 150, 255, 0.3);
+  box-shadow: 0 0 15px rgba(0, 150, 255, 0.3);
+  color: #77aaff;
+}

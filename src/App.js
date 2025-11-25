@@ -20,7 +20,6 @@ function saveCachedLog(signature, log) {
 }
 
 // ---------- Blacklist helpers ----------
-const BLACKLIST_KEY = "badseed_blacklist";
 const DEFAULT_BLACKLIST = [
   "EZvp2MfKaqZ14D95EMSECXfGqduScMCSUzpKSxBcNTzM",
   "AoX3EMzVXCNBdCNvboc7yGM4gsr3wcKd7hGsZ4yXcydU",
@@ -33,43 +32,19 @@ function isLocalEnvironment() {
 }
 
 function getBlacklistedAddresses() {
-  try {
-    const stored = localStorage.getItem(BLACKLIST_KEY);
-    if (stored) {
-      return JSON.parse(stored);
-    }
-    // Initialize with defaults
-    localStorage.setItem(BLACKLIST_KEY, JSON.stringify(DEFAULT_BLACKLIST));
-    return DEFAULT_BLACKLIST;
-  } catch (e) {
-    console.warn("Failed to load blacklist:", e);
-    return DEFAULT_BLACKLIST;
-  }
+  // Always return DEFAULT_BLACKLIST from code
+  return DEFAULT_BLACKLIST;
 }
 
-function saveBlacklistedAddresses(addresses) {
-  try {
-    localStorage.setItem(BLACKLIST_KEY, JSON.stringify(addresses));
-  } catch (e) {
-    console.warn("Failed to save blacklist:", e);
-  }
-}
 
-function addToBlacklist(address) {
-  const current = getBlacklistedAddresses();
-  if (!current.includes(address)) {
-    const updated = [...current, address];
-    saveBlacklistedAddresses(updated);
-    return updated;
-  }
-  return current;
-}
-
-function removeFromBlacklist(address) {
-  const current = getBlacklistedAddresses();
-  const updated = current.filter(addr => addr !== address);
-  saveBlacklistedAddresses(updated);
-  return updated;
+function copyBlacklistToClipboard(blacklist) {
+  const arrayString = `const DEFAULT_BLACKLIST = [\n${blacklist.map(addr => `  "${addr}"`).join(',\n')}\n];`;
+  navigator.clipboard.writeText(arrayString).then(() => {
+    alert('Blacklist copied to clipboard! Paste into App.js DEFAULT_BLACKLIST and commit.');
+  }).catch(err => {
+    console.error('Failed to copy:', err);
+    prompt('Copy this array definition:', arrayString);
+  });
 }
 // // duplicate import removed // duplicate removed
 // BADSEED AI: v1.0 - Real OpenAI Integration Active
@@ -234,30 +209,30 @@ function App() {
       scheduleDailyPosts();
       // Update queue display
       updateQueueDisplay();
-      // Load blacklist
+      // Load blacklist from code (DEFAULT_BLACKLIST)
       setBlacklist(getBlacklistedAddresses());
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showDashboard]);
 
 
-  // Blacklist management functions
+  // Blacklist management functions (in-memory for local dev)
   function handleAddToBlacklist() {
     const trimmed = newBlacklistAddress.trim();
     if (trimmed && trimmed.length > 30) { // Basic Solana address validation
-      const updated = addToBlacklist(trimmed);
-      setBlacklist(updated);
-      setNewBlacklistAddress("");
-      // Refilter transactions
-      loadWalletData();
+      if (!blacklist.includes(trimmed)) {
+        setBlacklist([...blacklist, trimmed]);
+        setNewBlacklistAddress("");
+      }
     }
   }
 
   function handleRemoveFromBlacklist(address) {
-    const updated = removeFromBlacklist(address);
-    setBlacklist(updated);
-    // Refilter transactions
-    loadWalletData();
+    setBlacklist(blacklist.filter(addr => addr !== address));
+  }
+
+  function handleCopyBlacklist() {
+    copyBlacklistToClipboard(blacklist);
   }
 
   async function handleCopyAndEnter() {
@@ -810,6 +785,13 @@ function App() {
                 onClick={handleAddToBlacklist}
               >
                 Add Address
+              </button>
+              <button
+                className="blacklist-btn blacklist-btn-copy"
+                onClick={handleCopyBlacklist}
+                title="Copy blacklist array to clipboard for code update"
+              >
+                📋 Copy Blacklist for Code
               </button>
             </div>
           )}
