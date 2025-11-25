@@ -18,6 +18,53 @@ function saveCachedLog(signature, log) {
     console.warn("Failed to cache AI log:", e);
   }
 }
+
+// ---------- Blacklist helpers ----------
+const BLACKLIST_KEY = "badseed_blacklist";
+const DEFAULT_BLACKLIST = [
+  "EZvp2MfKaqZ14D95EMSECXfGqduScMCSUzpKSxBcNTzM",
+  "AoX3EMzVXCNBdCNvboc7yGM4gsr3wcKd7hGsZ4yXcydU"
+];
+
+function getBlacklistedAddresses() {
+  try {
+    const stored = localStorage.getItem(BLACKLIST_KEY);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+    // Initialize with defaults
+    localStorage.setItem(BLACKLIST_KEY, JSON.stringify(DEFAULT_BLACKLIST));
+    return DEFAULT_BLACKLIST;
+  } catch (e) {
+    console.warn("Failed to load blacklist:", e);
+    return DEFAULT_BLACKLIST;
+  }
+}
+
+function saveBlacklistedAddresses(addresses) {
+  try {
+    localStorage.setItem(BLACKLIST_KEY, JSON.stringify(addresses));
+  } catch (e) {
+    console.warn("Failed to save blacklist:", e);
+  }
+}
+
+function addToBlacklist(address) {
+  const current = getBlacklistedAddresses();
+  if (!current.includes(address)) {
+    const updated = [...current, address];
+    saveBlacklistedAddresses(updated);
+    return updated;
+  }
+  return current;
+}
+
+function removeFromBlacklist(address) {
+  const current = getBlacklistedAddresses();
+  const updated = current.filter(addr => addr !== address);
+  saveBlacklistedAddresses(updated);
+  return updated;
+}
 // // duplicate import removed // duplicate removed
 // BADSEED AI: v1.0 - Real OpenAI Integration Active
 
@@ -152,6 +199,9 @@ function App() {
   const [postQueue, setPostQueue] = useState([]); // X.com post queue
   const [dailyPostCount, setDailyPostCount] = useState(0);
   const [nextPostTime, setNextPostTime] = useState(null);
+  const [blacklist, setBlacklist] = useState([]);
+  const [blacklistedTxs, setBlacklistedTxs] = useState([]);
+  const [newBlacklistAddress, setNewBlacklistAddress] = useState("");
 
   // DEV generator state
   // Dev generator state removed
@@ -178,9 +228,31 @@ function App() {
       scheduleDailyPosts();
       // Update queue display
       updateQueueDisplay();
+      // Load blacklist
+      setBlacklist(getBlacklistedAddresses());
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showDashboard]);
+
+
+  // Blacklist management functions
+  function handleAddToBlacklist() {
+    const trimmed = newBlacklistAddress.trim();
+    if (trimmed && trimmed.length > 30) { // Basic Solana address validation
+      const updated = addToBlacklist(trimmed);
+      setBlacklist(updated);
+      setNewBlacklistAddress("");
+      // Refilter transactions
+      loadWalletData();
+    }
+  }
+
+  function handleRemoveFromBlacklist(address) {
+    const updated = removeFromBlacklist(address);
+    setBlacklist(updated);
+    // Refilter transactions
+    loadWalletData();
+  }
 
   async function handleCopyAndEnter() {
     const phrase = seedPhrase || "";
@@ -346,15 +418,44 @@ function App() {
         };
       });
 
-      setTxItems(processedTxs);
+      // Filter transactions by blacklist
+      const currentBlacklist = getBlacklistedAddresses();
+      const displayed = [];
+      const blacklisted = [];
 
-      // 4. AI Logs with Caching
+      processedTxs.forEach(tx => {
+        // Check if transaction involves any blacklisted address
+        // We need to check the transaction details for account keys
+        const txIndex = processedTxs.indexOf(tx);
+        const detail = txDetails && txDetails[txIndex] ? txDetails[txIndex] : null;
+
+        let isBlacklisted = false;
+        if (detail && detail.transaction && detail.transaction.message) {
+          const accountKeys = detail.transaction.message.accountKeys || [];
+          // Check if any account matches blacklist
+          isBlacklisted = accountKeys.some(key => {
+            const address = typeof key === 'string' ? key : key.pubkey || key;
+            return currentBlacklist.includes(address);
+          });
+        }
+
+        if (isBlacklisted) {
+          blacklisted.push(tx);
+        } else {
+          displayed.push(tx);
+        }
+      });
+
+      setTxItems(displayed);
+      setBlacklistedTxs(blacklisted);
+
+      // 4. AI Logs with Caching (only for displayed transactions)
       // Check cache first
       const logs = [];
       const txsToFetch = [];
       const txsToFetchIndices = [];
 
-      processedTxs.forEach((tx, i) => {
+      displayed.forEach((tx, i) => {
         const cached = getCachedLog(tx.signature);
         if (cached) {
           logs[i] = cached;
@@ -373,13 +474,13 @@ function App() {
         fetchedLogs.forEach((log, fetchIdx) => {
           const originalIdx = txsToFetchIndices[fetchIdx];
           logs[originalIdx] = log;
-          saveCachedLog(processedTxs[originalIdx].signature, log);
+          saveCachedLog(displayed[originalIdx].signature, log);
         });
       }
 
       setAiLogs(logs);
       // Forward any new memos to X.com after logs are stored
-      await forwardMemosIfNeeded(processedTxs, logs);
+      await forwardMemosIfNeeded(displayed, logs);
       // Update queue display
       updateQueueDisplay();
 
@@ -666,6 +767,93 @@ function App() {
             <p>🕒 Posts are sent twice daily (UTC midnight & noon). Limit: 2 posts/day.</p>
             <p>🔄 Duplicate memos are automatically filtered.</p>
           </div>
+        </section>
+
+        {/* Blacklist section */}
+        <section className="dashboard-card dashboard-card--glow blacklist-section">
+          <h2 className="section-title">🚫 Blacklisted Addresses</h2>
+
+          <div className="blacklist-stats">
+            <div className="blacklist-stat">
+              <span className="blacklist-stat-label">Blacklisted Addresses:</span>
+              <span className="blacklist-stat-value">{blacklist.length}</span>
+            </div>
+            <div className="blacklist-stat">
+              <span className="blacklist-stat-label">Filtered Transactions:</span>
+              <span className="blacklist-stat-value">{blacklistedTxs.length}</span>
+            </div>
+          </div>
+
+          <div className="blacklist-add">
+            <input
+              type="text"
+              className="blacklist-input"
+              placeholder="Enter Solana address to blacklist..."
+              value={newBlacklistAddress}
+              onChange={(e) => setNewBlacklistAddress(e.target.value)}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  handleAddToBlacklist();
+                }
+              }}
+            />
+            <button
+              className="blacklist-btn blacklist-btn-add"
+              onClick={handleAddToBlacklist}
+            >
+              Add Address
+            </button>
+          </div>
+
+          <div className="blacklist-list">
+            {blacklist.length === 0 ? (
+              <div className="blacklist-empty">
+                <p>No addresses blacklisted. Add addresses above to filter unwanted transactions.</p>
+              </div>
+            ) : (
+              <ul className="blacklist-addresses">
+                {blacklist.map((address, idx) => (
+                  <li key={idx} className="blacklist-item">
+                    <span className="blacklist-address">{address}</span>
+                    <button
+                      className="blacklist-btn blacklist-btn-remove"
+                      onClick={() => handleRemoveFromBlacklist(address)}
+                    >
+                      Remove
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {blacklistedTxs.length > 0 && (
+            <details className="blacklist-transactions">
+              <summary className="blacklist-tx-summary">
+                View {blacklistedTxs.length} Filtered Transaction{blacklistedTxs.length !== 1 ? 's' : ''}
+              </summary>
+              <ul className="blacklist-tx-list">
+                {blacklistedTxs.map((tx, idx) => (
+                  <li key={idx} className="blacklist-tx-item">
+                    <div className="blacklist-tx-info">
+                      <span className="blacklist-tx-sig">
+                        <a
+                          href={`https://solscan.io/tx/${tx.signature}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          {tx.signature.slice(0, 20)}...
+                        </a>
+                      </span>
+                      <span className="blacklist-tx-time">
+                        {tx.blockTime ? new Date(tx.blockTime * 1000).toLocaleString() : 'N/A'}
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
         </section>
       </main>
     </div>
