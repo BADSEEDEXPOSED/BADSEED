@@ -61,7 +61,7 @@ async function solanaRpc(method, params) {
   // If primary fails, fallback to public Solana RPC
   if (!res.ok) {
     console.warn(`Primary RPC failed (${res.status}), falling back to public RPC`);
-    const fallbackEndpoint = "https://api.mainnet-beta.solana.com";
+    const fallbackEndpoint = "https://rpc.ankr.com/solana";
     res = await fetch(fallbackEndpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
