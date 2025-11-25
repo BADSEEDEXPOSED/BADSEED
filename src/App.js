@@ -23,8 +23,14 @@ function saveCachedLog(signature, log) {
 const BLACKLIST_KEY = "badseed_blacklist";
 const DEFAULT_BLACKLIST = [
   "EZvp2MfKaqZ14D95EMSECXfGqduScMCSUzpKSxBcNTzM",
-  "AoX3EMzVXCNBdCNvboc7yGM4gsr3wcKd7hGsZ4yXcydU"
+  "AoX3EMzVXCNBdCNvboc7yGM4gsr3wcKd7hGsZ4yXcydU",
+  "FLipG5QHjZe1H12f6rr5LCnrmqjhwuBTBp78GwzxnwkR"
 ];
+
+// Detect if running locally (localhost) vs deployed
+function isLocalEnvironment() {
+  return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+}
 
 function getBlacklistedAddresses() {
   try {
@@ -784,26 +790,29 @@ function App() {
             </div>
           </div>
 
-          <div className="blacklist-add">
-            <input
-              type="text"
-              className="blacklist-input"
-              placeholder="Enter Solana address to blacklist..."
-              value={newBlacklistAddress}
-              onChange={(e) => setNewBlacklistAddress(e.target.value)}
-              onKeyPress={(e) => {
-                if (e.key === 'Enter') {
-                  handleAddToBlacklist();
-                }
-              }}
-            />
-            <button
-              className="blacklist-btn blacklist-btn-add"
-              onClick={handleAddToBlacklist}
-            >
-              Add Address
-            </button>
-          </div>
+          {/* Add address input - only show in local development */}
+          {isLocalEnvironment() && (
+            <div className="blacklist-add">
+              <input
+                type="text"
+                className="blacklist-input"
+                placeholder="Enter Solana address to blacklist..."
+                value={newBlacklistAddress}
+                onChange={(e) => setNewBlacklistAddress(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    handleAddToBlacklist();
+                  }
+                }}
+              />
+              <button
+                className="blacklist-btn blacklist-btn-add"
+                onClick={handleAddToBlacklist}
+              >
+                Add Address
+              </button>
+            </div>
+          )}
 
           <div className="blacklist-list">
             {blacklist.length === 0 ? (
@@ -815,12 +824,15 @@ function App() {
                 {blacklist.map((address, idx) => (
                   <li key={idx} className="blacklist-item">
                     <span className="blacklist-address">{address}</span>
-                    <button
-                      className="blacklist-btn blacklist-btn-remove"
-                      onClick={() => handleRemoveFromBlacklist(address)}
-                    >
-                      Remove
-                    </button>
+                    {/* Remove button - only show in local development */}
+                    {isLocalEnvironment() && (
+                      <button
+                        className="blacklist-btn blacklist-btn-remove"
+                        onClick={() => handleRemoveFromBlacklist(address)}
+                      >
+                        Remove
+                      </button>
+                    )}
                   </li>
                 ))}
               </ul>
