@@ -776,8 +776,9 @@ function App() {
 
                       {/* Memo if any */}
                       {tx.memo && (
-                        <div style={{ marginBottom: "0.25rem", color: "#c0c0c0" }}>
-                          <strong>Memo:</strong> {tx.memo}
+                        <div style={{ marginBottom: "0.25rem" }}>
+                          <span className="tx-memo-label">Memo:</span>
+                          <span className="tx-memo-text">{tx.memo}</span>
                         </div>
                       )}
 

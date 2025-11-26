@@ -1025,3 +1025,21 @@ body::before {
     padding-bottom: 10vh;
   }
 }
+
+/* Memo text styling - black, bold, silver glow */
+.tx-memo-text {
+  color: #000;
+  font-weight: bold;
+  text-shadow: 0 0 8px rgba(192, 192, 192, 0.8), 
+               0 0 12px rgba(192, 192, 192, 0.5);
+  background: linear-gradient(90deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+  padding: 0.25rem 0.5rem;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+.tx-memo-label {
+  color: #c0c0c0;
+  font-weight: normal;
+  margin-right: 0.5rem;
+}
