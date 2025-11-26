@@ -285,6 +285,11 @@ function App() {
       setSendError("Please enter a message");
       return;
     }
+    // Enforce max 100 characters for memo
+    if (memoText.length > 100) {
+      setSendError("Memo must be 100 characters or less");
+      return;
+    }
 
     const amount = parseFloat(solAmount);
     if (isNaN(amount) || amount < 0.001) {
@@ -992,10 +997,10 @@ function App() {
                 value={memoText}
                 onChange={(e) => setMemoText(e.target.value)}
                 placeholder="Type your message here..."
-                maxLength={200}
+                maxLength={100}
               />
               <div style={{ textAlign: "right", fontSize: "0.8rem", color: "#666" }}>
-                {memoText.length}/200
+                {memoText.length}/100
               </div>
             </div>
 
