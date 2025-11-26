@@ -904,34 +904,36 @@ function App() {
             </div>
           </div>
 
-          {/* Manual Queue Controls */}
-          <div style={{ display: 'flex', gap: '10px', marginBottom: '15px', justifyContent: 'center' }}>
-            <button
-              onClick={async () => {
-                const result = await forcePostNow();
-                if (result.success) {
-                  alert("Post sent successfully!");
-                } else {
-                  alert("Post failed: " + result.reason);
-                }
-                updateQueueDisplay();
-              }}
-              className="blacklist-btn"
-              style={{ fontSize: '0.8rem', padding: '5px 10px' }}
-            >
-              ⚡ Force Post Now
-            </button>
-            <button
-              onClick={() => {
-                addTestItem();
-                updateQueueDisplay();
-              }}
-              className="blacklist-btn"
-              style={{ fontSize: '0.8rem', padding: '5px 10px' }}
-            >
-              🧪 Add Test Item
-            </button>
-          </div>
+          {/* Manual Queue Controls - Dev Only */}
+          {process.env.NODE_ENV === 'development' && (
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '15px', justifyContent: 'center' }}>
+              <button
+                onClick={async () => {
+                  const result = await forcePostNow();
+                  if (result.success) {
+                    alert("Post sent successfully!");
+                  } else {
+                    alert("Post failed: " + result.reason);
+                  }
+                  updateQueueDisplay();
+                }}
+                className="blacklist-btn"
+                style={{ fontSize: '0.8rem', padding: '5px 10px' }}
+              >
+                ⚡ Force Post Now
+              </button>
+              <button
+                onClick={() => {
+                  addTestItem();
+                  updateQueueDisplay();
+                }}
+                className="blacklist-btn"
+                style={{ fontSize: '0.8rem', padding: '5px 10px' }}
+              >
+                🧪 Add Test Item
+              </button>
+            </div>
+          )}
 
           <div className="queue-items">
             {postQueue.length === 0 ? (
