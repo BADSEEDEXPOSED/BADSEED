@@ -4,10 +4,11 @@
 
 import sha256 from "js-sha256";
 
-const X_API_URL = process.env.REACT_APP_X_API_URL || "https://api.x.com/2/tweets";
-const BEARER = process.env.REACT_APP_X_BEARER_TOKEN;
-const ACCESS_TOKEN = process.env.REACT_APP_X_ACCESS_TOKEN;
-const ACCESS_SECRET = process.env.REACT_APP_X_ACCESS_SECRET;
+const X_API_URL = "/.netlify/functions/x-poster";
+// Bearer token etc are now handled server-side, but we keep the env vars for local dev if needed
+// const BEARER = process.env.REACT_APP_X_BEARER_TOKEN; 
+// const ACCESS_TOKEN = process.env.REACT_APP_X_ACCESS_TOKEN;
+// const ACCESS_SECRET = process.env.REACT_APP_X_ACCESS_SECRET;
 
 const QUEUE_KEY = "badseed_x_queue";
 const COUNTER_KEY = "badseed_x_counter";
@@ -99,9 +100,6 @@ export async function processQueue(force = false) {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                Authorization: `Bearer ${BEARER}`,
-                "X-Access-Token": ACCESS_TOKEN,
-                "X-Access-Secret": ACCESS_SECRET,
             },
             body: JSON.stringify({ text: tweet }),
         });
