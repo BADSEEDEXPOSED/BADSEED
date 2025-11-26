@@ -128,7 +128,7 @@ async function solanaRpc(method, params) {
 }
 
 // Fetch AI narrative logs from Netlify serverless function (calls OpenAI)
-async function fetchAiLogsForTransactions(transactions, balanceSol) {
+async function fetchAiLogsForTransactions(transactions, balanceSol, walletAddress, totalTxCount, recentHistory) {
   if (!transactions || transactions.length === 0) {
     return [];
   }
@@ -147,7 +147,17 @@ async function fetchAiLogsForTransactions(transactions, balanceSol) {
           blockTime: tx.blockTime ?? null,
           confirmationStatus: tx.confirmationStatus || "unknown",
           err: tx.err || null,
-          memo: tx.memo || null
+          memo: tx.memo || null,
+          type: tx.type || "Unknown",
+          direction: tx.direction || "Unknown",
+          amount: tx.amount || "0",
+          token: tx.token || "SOL",
+          // Pass context as part of first transaction for simplicity
+          ...(transactions.indexOf(tx) === 0 ? {
+            walletAddress,
+            totalTxCount,
+            recentHistory
+          } : {})
         }))
       })
     });
@@ -563,8 +573,25 @@ function App() {
       });
 
       if (txsToFetch.length > 0) {
-        // Fetch only missing logs
-        const fetchedLogs = await fetchAiLogsForTransactions(txsToFetch, sol);
+        // Build recent history context (last 5-10 transactions with memos and AI logs)
+        const recentHistory = displayed.slice(0, 10).map((tx) => ({
+          signature: tx.signature,
+          type: tx.type || "Unknown",
+          direction: tx.direction || "",
+          amount: tx.amount || "",
+          token: tx.token || "SOL",
+          memo: tx.memo || null,
+          aiLog: getCachedLog(tx.signature) || null
+        }));
+
+        // Fetch only missing logs with full context
+        const fetchedLogs = await fetchAiLogsForTransactions(
+          txsToFetch,
+          sol,
+          BAD_SEED_WALLET_ADDRESS,
+          displayed.length,
+          recentHistory
+        );
 
         // Merge and save to cache
         fetchedLogs.forEach((log, fetchIdx) => {

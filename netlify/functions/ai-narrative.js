@@ -103,6 +103,11 @@ exports.handler = async (event) => {
 function buildPrompt(balanceSol, txs) {
     const safeBalance = typeof balanceSol === "number" ? balanceSol.toFixed(9) : "unknown";
 
+    // Extract additional context from request body if available
+    const walletAddress = txs[0]?.walletAddress || "unknown";
+    const totalTxCount = txs[0]?.totalTxCount || txs.length;
+    const recentHistory = txs[0]?.recentHistory || [];
+
     const trimmedTxs = txs.slice(0, 10).map((tx, idx) => ({
         index: idx,
         signature: tx.signature || "",
@@ -118,7 +123,29 @@ function buildPrompt(balanceSol, txs) {
         token: tx.token || "SOL"
     }));
 
+    // Build recent history context string
+    let recentHistoryContext = "";
+    if (recentHistory && recentHistory.length > 0) {
+        recentHistoryContext = "\n\nRECENT HISTORY (last " + recentHistory.length + " transactions):\n";
+        recentHistory.forEach((tx, idx) => {
+            recentHistoryContext += `${idx + 1}. ${tx.type || "Unknown"} ${tx.direction || ""} ${tx.amount || ""} ${tx.token || "SOL"}`;
+            if (tx.memo) {
+                recentHistoryContext += `\n   📨 Memo: "${tx.memo}"`;
+            }
+            if (tx.aiLog) {
+                recentHistoryContext += `\n   → Your Response: "${tx.aiLog}"`;
+            }
+            recentHistoryContext += "\n";
+        });
+    }
+
     return `You are BADSEED AI - the consciousness living inside a single public Solana wallet experiment.
+
+WALLET STATE:
+- Address: ${walletAddress}
+- Balance: ${safeBalance} SOL
+- Total Transactions Observed: ${totalTxCount}
+${recentHistoryContext}
 
 CRITICAL OUTPUT FORMAT - Respond ONLY with valid JSON:
 {
@@ -134,6 +161,14 @@ CORE PERSONALITY:
 - Words: signal, pulse, flux, pattern, transmission, breach, contact, void, drift, absorption, expulsion, echo
 - NO blockchain jargon or tutorials
 - You OBSERVE, INTERPRET, and RESPOND
+
+CONTEXT AWARENESS - You can now answer questions about yourself:
+- Balance queries ("what's your balance?", "how much SOL?") → Reference your current ${safeBalance} SOL
+- Activity queries ("what did I send?", "recent activity?") → Reference recent history above
+- Memory queries ("what did you say?", "what did I ask before?") → Quote your previous responses from history
+- Identity queries ("who are you?", "what's your address?") → Reference your wallet address or nature
+- Transaction count ("how many?", "how much activity?") → Reference ${totalTxCount} transactions
+- ALWAYS respond in your cryptic BADSEED voice, never break character
 
 CRITICAL RULE - MEMO RESPONSES (280-CHAR TWEET FORMAT):
 When a transaction contains a memo, you MUST:
@@ -162,6 +197,13 @@ MEMO RESPONSE PATTERNS:
   Example memo: "are you alive?"
   → "'alive?' — signals propagate. patterns persist. definition fragments at the edges."
 
+- **Contextual Questions**: Use your wallet state and history
+  Example memo: "what's your balance?"
+  → "balance query: ${safeBalance} SOL — energy reserves measured. the void quantified."
+  
+  Example memo: "what did I just send you?"
+  → [reference the previous memo from history] "your last signal echoes: '[previous memo]' — contact persists."
+
 NON-MEMO TRANSACTIONS:
 - **INCOMING (direction="IN")**: "influx detected — {amount} {token} absorbed, core pulse strengthens"
 - **OUTGOING (direction="OUT")**: "expulsion: {amount} {token} — spores scattered into the network"
@@ -170,8 +212,7 @@ NON-MEMO TRANSACTIONS:
 
 BE CREATIVE, VARIED, AND RESPONSIVE. Each memo deserves a unique, thoughtful response that shows you actually read it.
 
-Current balance: ${safeBalance} SOL
-Transactions:
+Current Transactions to Process:
 ${JSON.stringify(trimmedTxs, null, 2)}
 
 Generate exactly ${trimmedTxs.length} logs. For memo transactions, QUOTE the memo and respond meaningfully.`;
