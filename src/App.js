@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { queueMemo, scheduleDailyPosts, getQueue, getDailyPostCount, getNextPostTime } from "./xPosting";
+import { queueMemo, scheduleDailyPosts, getQueue, getDailyPostCount, getNextPostTime, forcePostNow, addTestItem } from "./xPosting";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { Transaction, SystemProgram, TransactionInstruction, PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
@@ -230,6 +230,14 @@ function App() {
       triggerLogoPulse();
     }
   }, [showSendModal]);
+
+  // Auto-refresh X.com queue display every 5 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      updateQueueDisplay();
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   // DEV generator state
   // Dev generator state removed
@@ -894,6 +902,35 @@ function App() {
                 {nextPostTime ? new Date(nextPostTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' }) : 'N/A'}
               </span>
             </div>
+          </div>
+
+          {/* Manual Queue Controls */}
+          <div style={{ display: 'flex', gap: '10px', marginBottom: '15px', justifyContent: 'center' }}>
+            <button
+              onClick={async () => {
+                const result = await forcePostNow();
+                if (result.success) {
+                  alert("Post sent successfully!");
+                } else {
+                  alert("Post failed: " + result.reason);
+                }
+                updateQueueDisplay();
+              }}
+              className="blacklist-btn"
+              style={{ fontSize: '0.8rem', padding: '5px 10px' }}
+            >
+              ⚡ Force Post Now
+            </button>
+            <button
+              onClick={() => {
+                addTestItem();
+                updateQueueDisplay();
+              }}
+              className="blacklist-btn"
+              style={{ fontSize: '0.8rem', padding: '5px 10px' }}
+            >
+              🧪 Add Test Item
+            </button>
           </div>
 
           <div className="queue-items">
