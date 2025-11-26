@@ -337,11 +337,19 @@ function App() {
 
       // Success
       setSendSuccess(true);
-      setTimeout(() => {
+
+      // Reload wallet data after a short delay to fetch the new transaction
+      // This will trigger AI analysis and queue the memo for X.com
+      setTimeout(async () => {
         setShowSendModal(false);
         setMemoText("");
         setSolAmount("0.001");
         setSendSuccess(false);
+
+        // Wait a bit more for blockchain confirmation, then refresh
+        setTimeout(() => {
+          loadWalletData();
+        }, 3000); // Wait 3 seconds for transaction to confirm
       }, 2000);
 
     } catch (err) {
