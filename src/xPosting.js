@@ -164,7 +164,7 @@ export function scheduleDailyPosts() {
 function checkAndPost() {
     const now = new Date();
     const currentHour = now.getUTCHours();
-    const currentMinute = now.getUTCMinutes();
+    // const currentMinute = now.getUTCMinutes(); // Unused
 
     // Schedule: UTC Midnight (00:00) and Noon (12:00)
     // We check if we are in the target window (e.g. 00:00-00:59 or 12:00-12:59)
