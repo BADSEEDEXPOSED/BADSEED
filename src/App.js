@@ -3,6 +3,7 @@ import { queueMemo, scheduleDailyPosts, getQueue, getDailyPostCount, getNextPost
 import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { Transaction, SystemProgram, TransactionInstruction, PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
+import sha256 from "js-sha256";
 
 // BAD SEED wallet address (receiver)
 const BAD_SEED_WALLET_ADDRESS = "9TyzcephhXEw67piYNc72EJtgVmbq3AZhyPFSvdfXWdr";
@@ -215,6 +216,21 @@ function App() {
   const [sendError, setSendError] = useState("");
   const [sendSuccess, setSendSuccess] = useState(false);
 
+  // Logo pulse enhancement
+  const [logoPulseEnhanced, setLogoPulseEnhanced] = useState(false);
+
+  function triggerLogoPulse() {
+    setLogoPulseEnhanced(true);
+    setTimeout(() => setLogoPulseEnhanced(false), 5000);
+  }
+
+  // Effect to trigger pulse when modal opens
+  useEffect(() => {
+    if (showSendModal) {
+      triggerLogoPulse();
+    }
+  }, [showSendModal]);
+
   // DEV generator state
   // Dev generator state removed
 
@@ -383,13 +399,20 @@ function App() {
   // After AI logs are fetched and cached, forward any new memos
   // This is called inside loadWalletData after setAiLogs(logs);
   async function forwardMemosIfNeeded(processedTxs, logsArray) {
+    const currentQueue = getQueue();
+    const queuedSignatures = new Set(currentQueue.map(item => item.hash || sha256(item.memo)));
+
     for (const tx of processedTxs) {
       if (tx.memo) {
-        const cached = getCachedLog(tx.signature);
-        if (!cached) {
+        // Check if this memo is already queued (using hash of memo)
+        const memoHash = sha256(tx.memo);
+        if (!queuedSignatures.has(memoHash)) {
           const aiLog = logsArray[processedTxs.indexOf(tx)];
-          // Queue memo + AI log for later X.com posting
-          queueMemo(tx.memo, aiLog);
+          if (aiLog) {
+            // Queue memo + AI log for later X.com posting
+            queueMemo(tx.memo, aiLog);
+            console.log("Queued memo:", tx.memo, "with AI log:", aiLog);
+          }
         }
       }
     }
@@ -644,7 +667,7 @@ function App() {
 
       {/* LOGO */}
       <header className="site-header">
-        <img src="/logo.gif" alt="Bad Seed Logo" className="logo" />
+        <img src="/logo.gif" alt="Bad Seed Logo" className={`logo ${logoPulseEnhanced ? 'logo--pulse-enhanced' : ''}`} />
       </header>
 
       {/* SEED SCREEN */}
@@ -719,7 +742,10 @@ function App() {
           </div>
 
           <button
-            onClick={loadWalletData}
+            onClick={() => {
+              loadWalletData();
+              triggerLogoPulse();
+            }}
             style={{
               marginTop: "1rem",
               width: "100%",
