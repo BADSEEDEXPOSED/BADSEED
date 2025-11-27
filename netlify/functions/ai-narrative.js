@@ -1,35 +1,6 @@
 // Netlify Serverless Function: AI Narrative Generator for BAD SEED
 // Endpoint: /.netlify/functions/ai-narrative
 
-const OAuth = require('oauth-1.0a');
-const crypto = require('crypto');
-
-function getOAuthHeader(url, method, body) {
-    const oauth = OAuth({
-        consumer: {
-            key: process.env.OAUTH_CONSUMER_KEY || '',
-            secret: process.env.OAUTH_CONSUMER_SECRET || ''
-        },
-        signature_method: 'HMAC-SHA1',
-        hash_function(base_string, key) {
-            return crypto.createHmac('sha1', key).update(base_string).digest('base64');
-        }
-    });
-
-    const token = {
-        key: process.env.OAUTH_TOKEN || '',
-        secret: process.env.OAUTH_TOKEN_SECRET || ''
-    };
-
-    const request_data = {
-        url: url,
-        method: method,
-        data: body
-    };
-
-    return oauth.toHeader(oauth.authorize(request_data, token));
-}
-
 exports.handler = async (event) => {
     try {
         if (event.httpMethod !== "POST") {
@@ -64,11 +35,7 @@ exports.handler = async (event) => {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                ...getOAuthHeader("https://api.openai.com/v1/chat/completions", "POST", {
-                    model: "gpt-4o-mini",
-                    messages: [{ role: "user", content: prompt }],
-                    temperature: 0.8
-                })
+                Authorization: `Bearer ${apiKey}`,
             },
             body: JSON.stringify({
                 model: "gpt-4o-mini",
