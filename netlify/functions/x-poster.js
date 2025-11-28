@@ -46,7 +46,7 @@ exports.handler = async function (event, context) {
         const request_data = {
             url: 'https://api.twitter.com/2/tweets',
             method: 'POST',
-            data: { text },
+            // Do NOT include body data in OAuth signature for JSON POST requests
         };
 
         const token = {
@@ -64,7 +64,7 @@ exports.handler = async function (event, context) {
                 ...authHeader,
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify(request_data.data),
+            body: JSON.stringify({ text }),
         });
 
         if (!response.ok) {
