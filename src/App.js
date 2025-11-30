@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { queueMemo, scheduleDailyPosts, getQueue, getDailyPostCount, getNextPostTime, forcePostNow, addTestItem } from "./xPosting";
+import { queueMemo, scheduleDailyPosts, getQueue, getDailyPostCount, getNextPostTime, forcePostNow, addTestItem, clearQueue } from "./xPosting";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { Transaction, SystemProgram, TransactionInstruction, PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
@@ -426,8 +426,9 @@ function App() {
     }
   }
 
-  function updateQueueDisplay() {
-    setPostQueue(getQueue());
+  async function updateQueueDisplay() {
+    const queue = await getQueue();
+    setPostQueue(queue);
     setDailyPostCount(getDailyPostCount());
     setNextPostTime(getNextPostTime());
   }
@@ -931,6 +932,18 @@ function App() {
                 style={{ fontSize: '0.8rem', padding: '5px 10px' }}
               >
                 🧪 Add Test Item
+              </button>
+              <button
+                onClick={async () => {
+                  if (window.confirm("Are you sure you want to clear the queue? This will remove all pending posts.")) {
+                    await clearQueue();
+                    updateQueueDisplay();
+                  }
+                }}
+                className="blacklist-btn"
+                style={{ fontSize: '0.8rem', padding: '5px 10px', backgroundColor: '#ff4444' }}
+              >
+                🗑️ Clear Queue
               </button>
             </div>
           )}
