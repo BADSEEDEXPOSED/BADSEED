@@ -2,8 +2,6 @@
 // Utility module for batching memos + AI logs into X.com (Twitter) posts.
 // Handles daily quota (2 posts), deduplication, tweet length limits, and scheduling.
 
-import sha256 from "js-sha256";
-
 const X_API_URL = "/.netlify/functions/x-poster";
 // Server‑side handles OAuth; env vars kept for local dev if needed
 // const BEARER = process.env.REACT_APP_X_BEARER_TOKEN;
@@ -101,7 +99,6 @@ export async function clearQueue() {
 
 // Core posting logic
 export async function processQueue(force = false) {
-    const today = new Date().toISOString().slice(0, 10);
     const counter = loadCounter();
 
     if (!force && counter.count >= 2) {
