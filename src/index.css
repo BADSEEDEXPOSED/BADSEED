@@ -1072,8 +1072,95 @@ body::before {
   display: inline-block;
 }
 
-.tx-memo-label {
+
+/* =========================================
+   UI Enhancements
+   ========================================= */
+
+/* Floating Scroll Buttons */
+.scroll-buttons {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 1000;
+}
+
+.scroll-btn {
+  background: #000;
+  border: 1px solid #888;
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
   color: #c0c0c0;
-  font-weight: normal;
-  margin-right: 0.5rem;
+  cursor: pointer;
+  box-shadow: 0 0 10px rgba(192, 192, 192, 0.3);
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.scroll-btn:hover {
+  background: #111;
+  border-color: #aaa;
+  box-shadow: 0 0 15px rgba(192, 192, 192, 0.5);
+  color: #fff;
+}
+
+.scroll-btn:active {
+  transform: scale(0.98);
+}
+
+/* Seed Screen Wallet Address */
+.seed-wallet-address {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-family: monospace;
+  font-size: 0.85rem;
+  color: #c0c0c0;
+  cursor: pointer;
+  z-index: 1000;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  backdrop-filter: blur(4px);
+}
+
+.seed-wallet-address:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.4);
+  color: #fff;
+  transform: scale(1.02);
+}
+
+.clipboard-icon {
+  font-size: 1rem;
+  filter: grayscale(100%);
+  transition: filter 0.3s ease;
+}
+
+.seed-wallet-address:hover .clipboard-icon {
+  filter: grayscale(0%);
+}
+
+/* Ensure fade-out works for this element too */
+.screen--active .fade-out-target {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.screen:not(.screen--active) .fade-out-target {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.8s ease-out;
 }

@@ -682,6 +682,21 @@ function App() {
         <WalletMultiButton />
       </div>
 
+      {/* Wallet Address Display - Seed Screen Only */}
+      {!showDashboard && (
+        <div
+          className="seed-wallet-address fade-out-target"
+          onClick={() => {
+            navigator.clipboard.writeText(BAD_SEED_WALLET_ADDRESS);
+            triggerLogoPulse();
+          }}
+          title="Click to copy address"
+        >
+          <span className="clipboard-icon">📋</span>
+          {BAD_SEED_WALLET_ADDRESS.slice(0, 4)}...{BAD_SEED_WALLET_ADDRESS.slice(-4)}
+        </div>
+      )}
+
       {/* LOGO */}
       <header className="site-header">
         <img src="/logo.gif" alt="Bad Seed Logo" className={`logo ${logoPulseEnhanced ? 'logo--pulse-enhanced' : ''}`} />
@@ -893,7 +908,7 @@ function App() {
         </section>
 
         {/* X.com Post Queue section */}
-        <section className="dashboard-card dashboard-card--glow post-queue-section">
+        <section id="queue-section" className="dashboard-card dashboard-card--glow post-queue-section">
           <h2 className="section-title">🌱 X.com Post Queue</h2>
 
           <div className="queue-status">
@@ -1126,44 +1141,34 @@ function App() {
                 value={solAmount}
                 onChange={(e) => setSolAmount(e.target.value)}
               />
-              <div style={{ fontSize: "0.8rem", color: "#666", marginTop: "0.2rem" }}>
-                Minimum: 0.001 SOL
+              <div className="modal-info">
+                This will send SOL to the BAD SEED wallet with your message attached on-chain.
               </div>
-            </div>
-
-            {sendError && (
-              <div className="modal-error">
-                {sendError}
-              </div>
-            )}
-
-            {sendSuccess && (
-              <div className="modal-success">
-                Transmission sent successfully!
-              </div>
-            )}
-
-            <div className="modal-buttons">
-              <button
-                className="modal-btn modal-btn-cancel"
-                onClick={() => setShowSendModal(false)}
-                disabled={isSending}
-              >
-                Cancel
-              </button>
-              <button
-                className="modal-btn modal-btn-send"
-                onClick={handleSendTransaction}
-                disabled={isSending}
-              >
-                {isSending ? "Sending..." : "Send Transmission"}
-              </button>
-            </div>
-
-            <div className="modal-info">
-              This will send SOL to the BAD SEED wallet with your message attached on-chain.
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Floating Scroll Buttons */}
+      {showDashboard && (
+        <div className="scroll-buttons">
+          <button
+            className="scroll-btn"
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+            title="Scroll to Top"
+          >
+            ▲ Top
+          </button>
+          <button
+            className="scroll-btn"
+            onClick={() => {
+              const queueSection = document.getElementById('queue-section');
+              if (queueSection) queueSection.scrollIntoView({ behavior: 'smooth' });
+            }}
+            title="Scroll to Queue"
+          >
+            ▼ Queue
+          </button>
         </div>
       )}
 
