@@ -26,3 +26,9 @@ yarn-error.log*
 # Netlify
 .netlify
 netlify/functions/queue.json
+
+# Development & Testing Files (never push these)
+test-*.js
+test-*.mjs
+DEV-SERVERS.md
+README-DEV.md
