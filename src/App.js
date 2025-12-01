@@ -1141,9 +1141,42 @@ function App() {
                 value={solAmount}
                 onChange={(e) => setSolAmount(e.target.value)}
               />
-              <div className="modal-info">
-                This will send SOL to the BAD SEED wallet with your message attached on-chain.
+              <div style={{ fontSize: "0.8rem", color: "#666", marginTop: "0.2rem" }}>
+                Minimum: 0.001 SOL
               </div>
+            </div>
+
+            {sendError && (
+              <div className="modal-error">
+                {sendError}
+              </div>
+            )}
+
+            {sendSuccess && (
+              <div className="modal-success">
+                Transmission sent successfully!
+              </div>
+            )}
+
+            <div className="modal-buttons">
+              <button
+                className="modal-btn modal-btn-cancel"
+                onClick={() => setShowSendModal(false)}
+                disabled={isSending}
+              >
+                Cancel
+              </button>
+              <button
+                className="modal-btn modal-btn-send"
+                onClick={handleSendTransaction}
+                disabled={isSending}
+              >
+                {isSending ? "Sending..." : "Send Transmission"}
+              </button>
+            </div>
+
+            <div className="modal-info">
+              This will send SOL to the BAD SEED wallet with your message attached on-chain.
             </div>
           </div>
         </div>
