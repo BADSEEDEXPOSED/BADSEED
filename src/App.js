@@ -406,9 +406,11 @@ function App() {
 
   // After AI logs are fetched and cached, forward any new memos
   // This is called inside loadWalletData after setAiLogs(logs);
+  // This is called inside loadWalletData after setAiLogs(logs);
   async function forwardMemosIfNeeded(processedTxs, logsArray) {
-    const currentQueue = getQueue();
-    const queuedSignatures = new Set(currentQueue.map(item => item.hash || sha256(item.memo)));
+    const currentQueue = await getQueue();
+    const queueArray = Array.isArray(currentQueue) ? currentQueue : [];
+    const queuedSignatures = new Set(queueArray.map(item => item.hash || sha256(item.memo)));
 
     for (const tx of processedTxs) {
       if (tx.memo) {
@@ -641,16 +643,22 @@ function App() {
 
     } catch (err) {
       console.error("Error loading Solana data:", err);
-      setBalanceText("Error loading balance");
-      setTxItems([
-        {
-          signature: "RPC_ERROR",
-          confirmationStatus: "unknown",
-          slot: "?",
-          blockTime: null,
-          note: "Error loading transactions. RPC might be rate-limited or unavailable.",
-        },
-      ]);
+      // Only show error in UI if we failed to load critical data (balance/txs)
+      // If we have data but failed on AI/Queue steps, keep showing the data
+      if (!balanceText || balanceText === "Loading...") {
+        setBalanceText("Error loading balance");
+      }
+      if (txItems.length === 0) {
+        setTxItems([
+          {
+            signature: "RPC_ERROR",
+            confirmationStatus: "unknown",
+            slot: "?",
+            blockTime: null,
+            note: "Error loading transactions. RPC might be rate-limited or unavailable.",
+          },
+        ]);
+      }
     }
   }
 
