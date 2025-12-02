@@ -1,5 +1,6 @@
-const fs = require('fs');
-const path = require('path');
+const { Storage } = require('./lib/storage');
+
+const storage = new Storage('queue-data');
 
 exports.handler = async (event) => {
     if (event.httpMethod !== 'POST') {
@@ -13,34 +14,36 @@ exports.handler = async (event) => {
         return { statusCode: 400, body: 'Invalid JSON' };
     }
 
-    const { ids } = body; // Expecting array of IDs
-    if (!Array.isArray(ids)) {
-        return { statusCode: 400, body: 'Missing ids array' };
+    const { id } = body;
+    if (!id) {
+        return { statusCode: 400, body: 'Missing id' };
     }
 
-    const file = path.resolve(__dirname, 'queue.json');
-    if (!fs.existsSync(file)) {
-        return { statusCode: 200, body: JSON.stringify({ removed: [] }) };
-    }
-
-    let queue = [];
     try {
-        queue = JSON.parse(fs.readFileSync(file, 'utf8'));
-    } catch (e) {
-        queue = [];
+        let queue = await storage.get('queue') || [];
+        const initialLength = queue.length;
+
+        queue = queue.filter(item => item.id !== id);
+
+        if (queue.length === initialLength) {
+            return {
+                statusCode: 404,
+                body: JSON.stringify({ error: 'Item not found' })
+            };
+        }
+
+        await storage.set('queue', queue);
+
+        return {
+            statusCode: 200,
+            body: JSON.stringify({ success: true, removed: id }),
+            headers: { 'Content-Type': 'application/json' }
+        };
+    } catch (error) {
+        console.error('Queue remove error:', error);
+        return {
+            statusCode: 500,
+            body: JSON.stringify({ error: 'Failed to remove from queue' })
+        };
     }
-
-    const initialLength = queue.length;
-    queue = queue.filter(item => !ids.includes(item.id));
-
-    fs.writeFileSync(file, JSON.stringify(queue, null, 2));
-
-    return {
-        statusCode: 200,
-        body: JSON.stringify({
-            removedCount: initialLength - queue.length,
-            remainingCount: queue.length
-        }),
-        headers: { 'Content-Type': 'application/json' }
-    };
 };

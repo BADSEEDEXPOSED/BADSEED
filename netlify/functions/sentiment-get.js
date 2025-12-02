@@ -1,13 +1,19 @@
-const fs = require('fs');
-const path = require('path');
+const { Storage } = require('./lib/storage');
 
-const DATA_FILE = path.join(__dirname, 'sentiment-data.json');
+const storage = new Storage('sentiment-data');
 
 exports.handler = async (event) => {
+    if (event.httpMethod !== 'GET') {
+        return { statusCode: 405, body: 'Method Not Allowed' };
+    }
+
     try {
-        // Read sentiment data
-        const data = fs.readFileSync(DATA_FILE, 'utf8');
-        const sentimentData = JSON.parse(data);
+        const data = await storage.get('data') || {
+            totalMemos: 0,
+            sentiments: { hope: 0, greed: 0, fear: 0, mystery: 0 },
+            lastUpdated: '',
+            prophecy: { text: '', date: '' }
+        };
 
         return {
             statusCode: 200,
@@ -15,24 +21,13 @@ exports.handler = async (event) => {
                 'Content-Type': 'application/json',
                 'Access-Control-Allow-Origin': '*'
             },
-            body: JSON.stringify(sentimentData)
+            body: JSON.stringify(data)
         };
     } catch (error) {
-        console.error('Error reading sentiment data:', error);
-
-        // Return default data if file doesn't exist or is corrupted
+        console.error('Error getting sentiment data:', error);
         return {
-            statusCode: 200,
-            headers: {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*'
-            },
-            body: JSON.stringify({
-                totalMemos: 0,
-                sentiments: { hope: 0, greed: 0, fear: 0, mystery: 0 },
-                lastUpdated: '',
-                prophecy: { text: '', date: '' }
-            })
+            statusCode: 500,
+            body: JSON.stringify({ error: error.message })
         };
     }
 };

@@ -1,6 +1,7 @@
-const fs = require('fs');
-const path = require('path');
+const { Storage } = require('./lib/storage');
 const { randomUUID } = require('crypto');
+
+const storage = new Storage('queue-data');
 
 exports.handler = async (event) => {
     if (event.httpMethod !== 'POST') {
@@ -19,43 +20,42 @@ exports.handler = async (event) => {
         return { statusCode: 400, body: 'Missing memo' };
     }
 
-    const file = path.resolve(__dirname, 'queue.json');
-    let queue = [];
-    if (fs.existsSync(file)) {
-        try {
-            queue = JSON.parse(fs.readFileSync(file, 'utf8'));
-        } catch (e) {
-            console.error('Failed to parse queue.json', e);
-            queue = [];
-        }
-    }
+    try {
+        // Get current queue
+        let queue = await storage.get('queue') || [];
 
-    const exists = queue.some(item => item.memo === memo);
-    if (exists) {
+        // Check if already queued
+        const exists = queue.some(item => item.memo === memo);
+        if (exists) {
+            return {
+                statusCode: 200,
+                body: JSON.stringify({ message: 'Already queued', skipped: true })
+            };
+        }
+
+        // Add new item
+        const newItem = {
+            id: randomUUID(),
+            memo,
+            aiLog: aiLog || '',
+            createdAt: new Date().toISOString()
+        };
+
+        queue.push(newItem);
+
+        // Save updated queue
+        await storage.set('queue', queue);
+
         return {
-            statusCode: 200,
-            body: JSON.stringify({ message: 'Already queued', skipped: true })
+            statusCode: 201,
+            body: JSON.stringify(newItem),
+            headers: { 'Content-Type': 'application/json' }
+        };
+    } catch (error) {
+        console.error('Queue add error:', error);
+        return {
+            statusCode: 500,
+            body: JSON.stringify({ error: 'Failed to add to queue' })
         };
     }
-
-    const newItem = {
-        id: randomUUID(),
-        memo,
-        aiLog: aiLog || '',
-        createdAt: new Date().toISOString()
-    };
-
-    queue.push(newItem);
-    try {
-        fs.writeFileSync(file, JSON.stringify(queue, null, 2));
-    } catch (e) {
-        console.error('Failed to write queue.json', e);
-        return { statusCode: 500, body: 'Server error: cannot write queue file' };
-    }
-
-    return {
-        statusCode: 201,
-        body: JSON.stringify(newItem),
-        headers: { 'Content-Type': 'application/json' }
-    };
 };

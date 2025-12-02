@@ -1,22 +1,25 @@
-const fs = require('fs');
-const path = require('path');
+const { Storage } = require('./lib/storage');
 
-exports.handler = async () => {
-    const file = path.resolve(__dirname, 'queue.json');
+const storage = new Storage('queue-data');
 
-    // Ensure file exists
-    if (!fs.existsSync(file)) {
-        return {
-            statusCode: 200,
-            body: JSON.stringify([]),
-            headers: { 'Content-Type': 'application/json' },
-        };
+exports.handler = async (event) => {
+    if (event.httpMethod !== 'GET') {
+        return { statusCode: 405, body: 'Method Not Allowed' };
     }
 
-    const data = fs.readFileSync(file, 'utf8');
-    return {
-        statusCode: 200,
-        body: data,
-        headers: { 'Content-Type': 'application/json' },
-    };
+    try {
+        const queue = await storage.get('queue') || [];
+
+        return {
+            statusCode: 200,
+            body: JSON.stringify(queue),
+            headers: { 'Content-Type': 'application/json' }
+        };
+    } catch (error) {
+        console.error('Queue get error:', error);
+        return {
+            statusCode: 500,
+            body: JSON.stringify({ error: 'Failed to get queue' })
+        };
+    }
 };

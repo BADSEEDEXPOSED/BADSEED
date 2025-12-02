@@ -1,7 +1,6 @@
-const fs = require('fs');
-const path = require('path');
+const { Storage } = require('./lib/storage');
 
-const DATA_FILE = path.join(__dirname, 'sentiment-data.json');
+const storage = new Storage('sentiment-data');
 
 exports.handler = async (event) => {
     if (event.httpMethod !== 'POST') {
@@ -20,28 +19,21 @@ exports.handler = async (event) => {
             };
         }
 
-        // Read current data
-        let data = {
+        // Get current data
+        let data = await storage.get('data') || {
             totalMemos: 0,
             sentiments: { hope: 0, greed: 0, fear: 0, mystery: 0 },
             lastUpdated: '',
             prophecy: { text: '', date: '' }
         };
 
-        try {
-            const fileData = fs.readFileSync(DATA_FILE, 'utf8');
-            data = JSON.parse(fileData);
-        } catch (err) {
-            console.log('No existing data file, creating new one');
-        }
-
         // Update sentiment
         data.sentiments[sentiment]++;
         data.totalMemos++;
         data.lastUpdated = new Date().toISOString();
 
-        // Write back to file
-        fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+        // Save updated data
+        await storage.set('data', data);
 
         return {
             statusCode: 200,

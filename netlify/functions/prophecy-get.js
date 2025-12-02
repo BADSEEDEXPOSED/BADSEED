@@ -1,22 +1,25 @@
-const fs = require('fs');
-const path = require('path');
+const { Storage } = require('./lib/storage');
 
-const DATA_FILE = path.join(__dirname, 'sentiment-data.json');
+const storage = new Storage('sentiment-data');
 
 exports.handler = async (event) => {
+    if (event.httpMethod !== 'GET') {
+        return { statusCode: 405, body: 'Method Not Allowed' };
+    }
+
     try {
-        // Read sentiment data
-        const data = fs.readFileSync(DATA_FILE, 'utf8');
-        const sentimentData = JSON.parse(data);
+        const data = await storage.get('data') || {
+            totalMemos: 0,
+            sentiments: { hope: 0, greed: 0, fear: 0, mystery: 0 },
+            lastUpdated: '',
+            prophecy: { text: '', date: '' }
+        };
 
-        // Get today's date in YYYY-MM-DD format
         const today = new Date().toISOString().split('T')[0];
+        const prophecy = data.prophecy || { text: '', date: '' };
 
-        // Check if prophecy exists and is for today
-        const prophecy = sentimentData.prophecy || { text: '', date: '' };
-
-        // If no prophecy for today, return empty/waiting state
-        if (!prophecy.text || prophecy.date !== today) {
+        // Check if prophecy is for today and ready
+        if (prophecy.date === today && prophecy.text) {
             return {
                 statusCode: 200,
                 headers: {
@@ -24,29 +27,14 @@ exports.handler = async (event) => {
                     'Access-Control-Allow-Origin': '*'
                 },
                 body: JSON.stringify({
-                    text: '',
-                    date: today,
-                    ready: false
+                    text: prophecy.text,
+                    date: prophecy.date,
+                    ready: prophecy.ready || false
                 })
             };
         }
 
-        return {
-            statusCode: 200,
-            headers: {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*'
-            },
-            body: JSON.stringify({
-                text: prophecy.text,
-                date: prophecy.date,
-                ready: true
-            })
-        };
-    } catch (error) {
-        console.error('Error reading prophecy:', error);
-
-        const today = new Date().toISOString().split('T')[0];
+        // No prophecy for today
         return {
             statusCode: 200,
             headers: {
@@ -55,9 +43,15 @@ exports.handler = async (event) => {
             },
             body: JSON.stringify({
                 text: '',
-                date: today,
+                date: '',
                 ready: false
             })
+        };
+    } catch (error) {
+        console.error('Error getting prophecy:', error);
+        return {
+            statusCode: 500,
+            body: JSON.stringify({ error: error.message })
         };
     }
 };
