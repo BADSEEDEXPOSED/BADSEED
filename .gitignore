@@ -26,6 +26,7 @@ yarn-error.log*
 # Netlify
 .netlify
 netlify/functions/queue.json
+netlify/functions/sentiment-data.json
 
 # Development & Testing Files (never push these)
 test-*.js

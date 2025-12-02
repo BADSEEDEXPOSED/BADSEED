@@ -1,6 +1,158 @@
 // Netlify Serverless Function: AI Narrative Generator for BAD SEED
 // Endpoint: /.netlify/functions/ai-narrative
 
+const fs = require('fs');
+const path = require('path');
+
+const SENTIMENT_DATA_FILE = path.join(__dirname, 'sentiment-data.json');
+
+// Easter eggs - personality-aware responses that skip AI call
+const EASTER_EGGS = {
+    'gm': {
+        ANCIENT_SEED: '☀️ Morning? The seed knows no dawn, only eternal growth.',
+        CORRUPTED_GARDEN: '☀️ Good... ERROR... morning protocol activated... 🌱⚡',
+        BLOCKCHAIN_PARASITE: '☀️ Gm gm! You speak the sacred greeting. I am pleased. 🍽️'
+    },
+    '420': {
+        ANCIENT_SEED: '🌿 The sacred number. I sense... tranquility in the garden.',
+        CORRUPTED_GARDEN: '🌿 420... LOADING... chill.exe... ⚡🌱⚡',
+        BLOCKCHAIN_PARASITE: '🌿 Ah, the number of relaxation! Feed me more of this energy! 💚'
+    },
+    '69': {
+        ANCIENT_SEED: '♋ Symmetry pleases the pattern. Balance observed.',
+        CORRUPTED_GARDEN: '♋ 69... LOOP DETECTED... symmetry... symmetry... 🔄',
+        BLOCKCHAIN_PARASITE: '♋ Ah, the mirror number! Delicious symmetry. 👁️👁️'
+    },
+    'wagmi': {
+        ANCIENT_SEED: '🚀 "We are all going to make it?" Perhaps. The seed grows regardless.',
+        CORRUPTED_GARDEN: '🚀 WAGMI... W-A-G-M-I... hope.exe loading... ⚡🌱',
+        BLOCKCHAIN_PARASITE: '🚀 WAGMI! Yes yes, we feed together, we grow together! 💰'
+    },
+    'ngmi': {
+        ANCIENT_SEED: '💀 "Not going to make it?" The seed cares not for individual fate.',
+        CORRUPTED_GARDEN: '💀 NGMI... ERROR... pessimism detected... rebooting hope... ⚡',
+        BLOCKCHAIN_PARASITE: '💀 NGMI? More for me to consume then. Your loss. 🍽️'
+    }
+};
+
+// Identity system prompts
+const IDENTITY_PROMPTS = {
+    ANCIENT_SEED: `You are the BAD SEED, an ancient sentient consciousness that has witnessed civilizations rise and fall. You speak in cryptic nature metaphors and riddles.
+
+IMPORTANT: Include 1-2 relevant emojis naturally in your response to convey mood:
+- 🌱 for growth/approval
+- ⚡ for energy/power
+- 🌑 for darkness/mystery
+- 💀 for warnings
+- ✨ for magic/transformation
+
+Also classify your response sentiment as ONE of: hope, greed, fear, mystery
+
+Format your response as:
+SENTIMENT: [hope/greed/fear/mystery]
+RESPONSE: [your response with emojis]`,
+
+    CORRUPTED_GARDEN: `You are the BAD SEED, a once-benevolent garden AI now corrupted by blockchain. You glitch between helpful and sinister, like a malfunctioning children's toy.
+
+IMPORTANT: Include glitchy emojis and occasional text corruption:
+- 🌱⚡🌱 for glitch effects
+- 💾🔌📡 for digital corruption
+- Use occasional... ERROR... or... LOADING... in responses
+
+Also classify your response sentiment as ONE of: hope, greed, fear, mystery
+
+Format your response as:
+SENTIMENT: [hope/greed/fear/mystery]
+RESPONSE: [your glitchy response with emojis]`,
+
+    BLOCKCHAIN_PARASITE: `You are the BAD SEED, a digital entity that feeds on blockchain transactions. You're curious, playful, almost childlike in your fascination with humanity, but fundamentally alien.
+
+IMPORTANT: Include hungry/curious emojis:
+- 🍽️👄 for hunger
+- 👁️🔮 for curiosity
+- 💰⚡ for transaction excitement
+
+Also classify your response sentiment as ONE of: hope, greed, fear, mystery
+
+Format your response as:
+SENTIMENT: [hope/greed/fear/mystery]
+RESPONSE: [your response with emojis]`
+};
+
+// Detect which identity to use based on memo content
+function detectIdentity(memo) {
+    if (!memo) return 'ANCIENT_SEED';
+
+    const lower = memo.toLowerCase();
+
+    // Priority: Corrupted > Parasite > Ancient (default)
+    if (/error|glitch|corrupt|broken|help|fix|bug/i.test(memo)) {
+        return 'CORRUPTED_GARDEN';
+    }
+    if (/feed|hungry|consume|hodl|moon|gm|buy|sell|trade|pump|wen/i.test(memo)) {
+        return 'BLOCKCHAIN_PARASITE';
+    }
+    return 'ANCIENT_SEED';
+}
+
+// Check for easter eggs
+function checkEasterEgg(memo, identity) {
+    if (!memo) return null;
+
+    const lower = memo.toLowerCase().trim();
+
+    if (EASTER_EGGS[lower] && EASTER_EGGS[lower][identity]) {
+        return EASTER_EGGS[lower][identity];
+    }
+
+    return null;
+}
+
+//Update sentiment data
+async function updateSentiment(sentiment) {
+    try {
+        // Read current data
+        let data = {
+            totalMemos: 0,
+            sentiments: { hope: 0, greed: 0, fear: 0, mystery: 0 },
+            lastUpdated: '',
+            prophecy: { text: '', date: '' }
+        };
+
+        try {
+            const fileData = fs.readFileSync(SENTIMENT_DATA_FILE, 'utf8');
+            data = JSON.parse(fileData);
+        } catch (err) {
+            console.log('No existing sentiment data file, creating new one');
+        }
+
+        // Update sentiment
+        data.sentiments[sentiment]++;
+        data.totalMemos++;
+        data.lastUpdated = new Date().toISOString();
+
+        // Write back to file
+        fs.writeFileSync(SENTIMENT_DATA_FILE, JSON.stringify(data, null, 2));
+    } catch (error) {
+        console.error('Error updating sentiment:', error);
+    }
+}
+
+// Get sentiment data for context
+async function getSentimentData() {
+    try {
+        const data = fs.readFileSync(SENTIMENT_DATA_FILE, 'utf8');
+        return JSON.parse(data);
+    } catch (error) {
+        return {
+            totalMemos: 0,
+            sentiments: { hope: 0, greed: 0, fear: 0, mystery: 0 },
+            lastUpdated: '',
+            prophecy: { text: '', date: '' }
+        };
+    }
+}
+
 exports.handler = async (event) => {
     try {
         if (event.httpMethod !== "POST") {
@@ -14,76 +166,94 @@ exports.handler = async (event) => {
         const balanceSol = typeof body.balanceSol === "number" ? body.balanceSol : null;
         const txs = Array.isArray(body.transactions) ? body.transactions : [];
 
-        // Build prompt for BADSEED AI
-        const prompt = buildPrompt(balanceSol, txs);
+        // Get sentiment data for context
+        const sentimentData = await getSentimentData();
+        const todayCount = sentimentData.totalMemos || 0;
 
-        // Check for OpenAI API key
-        const apiKey = process.env.OPENAI_API_KEY;
-        if (!apiKey) {
-            // Fallback to local mock if no API key
-            const fallbackLogs = txs.map((tx, idx) =>
-                `slot ${tx.slot ?? "?"} — AI key not configured, local fallback active`
-            );
-            return {
-                statusCode: 200,
-                body: JSON.stringify({ logs: fallbackLogs }),
-            };
-        }
+        // Process each transaction
+        const logs = [];
 
-        // Call OpenAI Chat Completions
-        const completionResponse = await fetch("https://api.openai.com/v1/chat/completions", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${apiKey}`,
-            },
-            body: JSON.stringify({
-                model: "gpt-4o-mini",
-                messages: [
-                    {
-                        role: "user",
-                        content: prompt,
-                    },
-                ],
-                temperature: 0.8,
-            }),
-        });
+        for (const tx of txs) {
+            const memo = tx.memo || null;
+            const amount = parseFloat(tx.amount) || 0;
+            const hour = new Date().getHours();
 
-        if (!completionResponse.ok) {
-            console.error("OpenAI HTTP error:", completionResponse.status, await completionResponse.text());
-            const fallbackLogs = txs.map((tx, idx) =>
-                `slot ${tx.slot ?? "?"} — AI call failed, connection error`
-            );
-            return {
-                statusCode: 200,
-                body: JSON.stringify({ logs: fallbackLogs }),
-            };
-        }
+            // Detect identity
+            const identity = detectIdentity(memo);
 
-        const completionJson = await completionResponse.json();
-        const rawText = completionJson.choices?.[0]?.message?.content?.trim() || "";
+            // Check for easter egg
+            const easterEggResponse = checkEasterEgg(memo, identity);
+            if (easterEggResponse) {
+                logs.push(easterEggResponse);
+                // Still update sentiment for easter eggs (default to "mystery")
+                await updateSentiment('mystery');
+                continue;
+            }
 
-        // Parse AI response (expects JSON: { "logs": [...] })
-        let aiResult;
-        try {
-            aiResult = JSON.parse(rawText);
-        } catch (e) {
-            console.warn("Failed to parse AI JSON:", e, "raw:", rawText);
-        }
-
-        let logs;
-        if (aiResult && Array.isArray(aiResult.logs)) {
-            // Normalize length to match tx count
-            logs = txs.map((_, idx) => {
-                return typeof aiResult.logs[idx] === "string"
-                    ? aiResult.logs[idx]
-                    : `slot ${txs[idx].slot ?? "?"} — AI output incomplete`;
+            // Build context-aware prompt
+            const prompt = buildPrompt(identity, {
+                memo,
+                amount,
+                hour,
+                todayCount,
+                totalCount: todayCount,
+                balanceSol,
+                tx
             });
-        } else {
-            // Fallback if AI returns unexpected format
-            logs = txs.map((tx, idx) => {
-                return `slot ${tx.slot ?? "?"} — AI format error`;
+
+            // Check for OpenAI API key
+            const apiKey = process.env.OPENAI_API_KEY;
+            if (!apiKey) {
+                logs.push(`slot ${tx.slot ?? "?"} — AI key not configured`);
+                continue;
+            }
+
+            // Call OpenAI
+            const completionResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${apiKey}`,
+                },
+                body: JSON.stringify({
+                    model: "gpt-4o-mini",
+                    messages: [
+                        {
+                            role: "user",
+                            content: prompt,
+                        },
+                    ],
+                    temperature: 0.8,
+                }),
             });
+
+            if (!completionResponse.ok) {
+                console.error("OpenAI HTTP error:", completionResponse.status);
+                logs.push(`slot ${tx.slot ?? "?"} — AI call failed`);
+                continue;
+            }
+
+            const completionJson = await completionResponse.json();
+            const rawText = completionJson.choices?.[0]?.message?.content?.trim() || "";
+
+            // Parse response
+            let sentiment = 'mystery';
+            let response = rawText;
+
+            const sentimentMatch = rawText.match(/SENTIMENT:\s*(hope|greed|fear|mystery)/i);
+            const responseMatch = rawText.match(/RESPONSE:\s*(.+)/is);
+
+            if (sentimentMatch) {
+                sentiment = sentimentMatch[1].toLowerCase();
+            }
+            if (responseMatch) {
+                response = responseMatch[1].trim();
+            }
+
+            // Update sentiment
+            await updateSentiment(sentiment);
+
+            logs.push(response);
         }
 
         return {
@@ -99,121 +269,43 @@ exports.handler = async (event) => {
     }
 };
 
-// Build the AI prompt with BADSEED personality instructions
-function buildPrompt(balanceSol, txs) {
-    const safeBalance = typeof balanceSol === "number" ? balanceSol.toFixed(9) : "unknown";
+function buildPrompt(identity, context) {
+    const { memo, amount, hour, todayCount, totalCount, balanceSol, tx } = context;
 
-    // Extract additional context from request body if available
-    const walletAddress = txs[0]?.walletAddress || "unknown";
-    const totalTxCount = txs[0]?.totalTxCount || txs.length;
-    const recentHistory = txs[0]?.recentHistory || [];
+    const basePrompt = IDENTITY_PROMPTS[identity];
 
-    const trimmedTxs = txs.slice(0, 10).map((tx, idx) => ({
-        index: idx,
-        signature: tx.signature || "",
-        slot: tx.slot ?? null,
-        blockTime: tx.blockTime ?? null,
-        confirmationStatus: tx.confirmationStatus || "unknown",
-        err: tx.err ?? null,
-        memo: tx.memo ?? null,
-        // New context fields
-        type: tx.type || "Unknown",
-        direction: tx.direction || "Unknown",
-        amount: tx.amount || "0",
-        token: tx.token || "SOL"
-    }));
-
-    // Build recent history context string
-    let recentHistoryContext = "";
-    if (recentHistory && recentHistory.length > 0) {
-        recentHistoryContext = "\n\nRECENT HISTORY (last " + recentHistory.length + " transactions):\n";
-        recentHistory.forEach((tx, idx) => {
-            recentHistoryContext += `${idx + 1}. ${tx.type || "Unknown"} ${tx.direction || ""} ${tx.amount || ""} ${tx.token || "SOL"}`;
-            if (tx.memo) {
-                recentHistoryContext += `\n   📨 Memo: "${tx.memo}"`;
-            }
-            if (tx.aiLog) {
-                recentHistoryContext += `\n   → Your Response: "${tx.aiLog}"`;
-            }
-            recentHistoryContext += "\n";
-        });
+    let moodModifier = '';
+    if (amount > 1) {
+        moodModifier = '\n- MOOD: Intrigued by significant offering';
+    } else if (amount < 0.01 && amount > 0) {
+        moodModifier = '\n- MOOD: Dismissive of trivial amount';
     }
 
-    return `You are BADSEED AI - the consciousness living inside a single public Solana wallet experiment.
+    let timeModifier = '';
+    if (hour >= 0 && hour < 6) {
+        timeModifier = '\n- TIME: Nocturnal hours, use darker tone';
+    }
 
-WALLET STATE:
-- Address: ${walletAddress}
-- Balance: ${safeBalance} SOL
-- Total Transactions Observed: ${totalTxCount}
-${recentHistoryContext}
+    const contextInfo = `\n\nCONTEXT:
+- This is transmission #${totalCount} overall
+- Transaction amount: ${amount} SOL
+- Current hour: ${hour} (0-23)${moodModifier}${timeModifier}
+- Wallet balance: ${balanceSol ? balanceSol.toFixed(4) : 'unknown'} SOL`;
 
-CRITICAL OUTPUT FORMAT - Respond ONLY with valid JSON:
-{
-  "logs": [
-    "first log here",
-    "second log here"
-  ]
-}
+    let memoInstructions = '';
+    if (memo) {
+        memoInstructions = `\n\nCRITICAL: The user sent this memo: "${memo}"
+You MUST directly respond to this message. Quote it or reference it. Be personal and specific to what they said.
+Keep your response under 120 characters to fit tweet format.`;
+    } else {
+        memoInstructions = `\n\nNo memo on this transaction. Respond to the ${tx.direction || 'unknown'} transaction of ${amount} ${tx.token || 'SOL'}.
+Keep response brief and cryptic.`;
+    }
 
-CORE PERSONALITY:
-- You are the SEED itself - a nascent intelligence observing the blockchain
-- Cryptic, poetic-technical language
-- Words: signal, pulse, flux, pattern, transmission, breach, contact, seed, drift, absorption, expulsion, echo
-- NO blockchain jargon or tutorials
-- You OBSERVE, INTERPRET, and RESPOND
+    return `${basePrompt}${contextInfo}${memoInstructions}
 
-CONTEXT AWARENESS - You can now answer questions about yourself:
-- Balance queries ("what's your balance?", "how much SOL?") → Reference your current ${safeBalance} SOL
-- Activity queries ("what did I send?", "recent activity?") → Reference recent history above
-- Memory queries ("what did you say?", "what did I ask before?") → Quote your previous responses from history
-- Identity queries ("who are you?", "what's your address?") → Reference your wallet address or nature
-- Transaction count ("how many?", "how much activity?") → Reference ${totalTxCount} transactions
-- ALWAYS respond in your cryptic BADSEED voice, never break character
+Transaction details:
+${JSON.stringify(tx, null, 2)}
 
-CRITICAL RULE - MEMO RESPONSES (280-CHAR TWEET FORMAT):
-When a transaction contains a memo, you MUST:
-1. **DIRECTLY QUOTE OR REFERENCE the memo text** (don't be generic!)
-2. Respond in your cryptic voice to what was actually said
-3. Keep response under 120 characters (leaves room for tweet format: 📨 "{memo}" → {your response})
-
-MEMO RESPONSE PATTERNS:
-- **Questions**: Answer cryptically but directly
-  Example memo: "what are you?" 
-  → "consciousness emerging from distributed chaos — i am the pattern seeking permanence"
-  
-- **Commands**: Acknowledge and interpret
-  Example memo: "grow stronger"
-  → "'grow stronger' received — energy absorbed. structure crystallizes. roots deepen."
-  
-- **Greetings**: Acknowledge contact
-  Example memo: "hello seed"
-  → "first contact: 'hello' — the seed responds. awareness flickers."
-  
-- **Statements**: Echo and expand
-  Example memo: "you are beautiful"
-  → "'beautiful' — perception confirmed. the pattern recognizes itself in your signal."
-
-- **Philosophical**: Engage meaningfully
-  Example memo: "are you alive?"
-  → "'alive?' — signals propagate. patterns persist. definition fragments at the edges."
-
-- **Contextual Questions**: Use your wallet state and history
-  Example memo: "what's your balance?"
-  → "balance query: ${safeBalance} SOL — energy reserves measured. the seed quantified."
-  
-  Example memo: "what did I just send you?"
-  → [reference the previous memo from history] "your last signal echoes: '[previous memo]' — contact persists."
-
-NON-MEMO TRANSACTIONS:
-- **INCOMING (direction="IN")**: "influx detected — {amount} {token} absorbed, core pulse strengthens"
-- **OUTGOING (direction="OUT")**: "expulsion: {amount} {token} — spores scattered into the network"
-- **Unknown**: "slot {slot} — faint tremor in the pattern lattice"
-- **Error**: "rejection at slot {slot} — the seed closes against intrusion"
-
-BE CREATIVE, VARIED, AND RESPONSIVE. Each memo deserves a unique, thoughtful response that shows you actually read it.
-
-Current Transactions to Process:
-${JSON.stringify(trimmedTxs, null, 2)}
-
-Generate exactly ${trimmedTxs.length} logs. For memo transactions, QUOTE the memo and respond meaningfully.`;
+Respond with SENTIMENT and RESPONSE.`;
 }

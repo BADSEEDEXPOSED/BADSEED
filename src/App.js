@@ -219,6 +219,10 @@ function App() {
   // Logo pulse enhancement
   const [logoPulseEnhanced, setLogoPulseEnhanced] = useState(false);
 
+  // Sentiment & Prophecy state
+  const [sentimentData, setSentimentData] = useState(null);
+  const [prophecy, setProphecy] = useState(null);
+
   function triggerLogoPulse() {
     setLogoPulseEnhanced(true);
     setTimeout(() => setLogoPulseEnhanced(false), 5000);
@@ -236,6 +240,48 @@ function App() {
     const interval = setInterval(() => {
       updateQueueDisplay();
     }, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Fetch sentiment data (poll every 2 minutes when page is visible)
+  useEffect(() => {
+    const fetchSentiment = async () => {
+      try {
+        const response = await fetch('/.netlify/functions/sentiment-get');
+        const data = await response.json();
+        setSentimentData(data);
+      } catch (error) {
+        console.error('Failed to fetch sentiment:', error);
+      }
+    };
+
+    fetchSentiment(); // Initial fetch
+
+    const interval = setInterval(() => {
+      if (!document.hidden) { // Only fetch if page is visible
+        fetchSentiment();
+      }
+    }, 120000); // 2 minutes
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Fetch prophecy data (poll every 5 minutes)
+  useEffect(() => {
+    const fetchProphecy = async () => {
+      try {
+        const response = await fetch('/.netlify/functions/prophecy-get');
+        const data = await response.json();
+        setProphecy(data);
+      } catch (error) {
+        console.error('Failed to fetch prophecy:', error);
+      }
+    };
+
+    fetchProphecy(); // Initial fetch
+
+    const interval = setInterval(fetchProphecy, 300000); // 5 minutes
+
     return () => clearInterval(interval);
   }, []);
 
@@ -803,6 +849,100 @@ function App() {
             Refresh Data
           </button>
         </section>
+
+        {/* Collective Sentiment Section */}
+        {sentimentData && (
+          <section className="dashboard-card dashboard-card--glow collective-sentiment">
+            <h2 className="section-title">🌍 Collective Sentiment</h2>
+            <p className="sentiment-subtitle">
+              {sentimentData.totalMemos} transmissions analyzed
+            </p>
+
+            {/* Calculate percentages */}
+            {(() => {
+              const total = Object.values(sentimentData.sentiments).reduce((a, b) => a + b, 0);
+              if (total === 0) return <p>Awaiting first transmission...</p>;
+
+              const percentages = {
+                hope: Math.round((sentimentData.sentiments.hope / total) * 100),
+                greed: Math.round((sentimentData.sentiments.greed / total) * 100),
+                fear: Math.round((sentimentData.sentiments.fear / total) * 100),
+                mystery: Math.round((sentimentData.sentiments.mystery / total) * 100)
+              };
+
+              // Determine dominant mood
+              const dominant = Object.keys(sentimentData.sentiments).reduce((a, b) =>
+                sentimentData.sentiments[a] > sentimentData.sentiments[b] ? a : b
+              );
+
+              const moods = {
+                hope: { emoji: '🌱', text: 'The seed is hopeful', color: '#00ff00' },
+                greed: { emoji: '💰', text: 'The seed hungers', color: '#ffd700' },
+                fear: { emoji: '🌑', text: 'The seed is uneasy', color: '#ff4444' },
+                mystery: { emoji: '🔮', text: 'The seed is cryptic', color: '#9966ff' }
+              };
+
+              const currentMood = moods[dominant];
+
+              return (
+                <>
+                  <div className="seed-mood" style={{ color: currentMood.color }}>
+                    {currentMood.emoji} {currentMood.text}
+                  </div>
+
+                  <div className="sentiment-bars">
+                    <div className="sentiment-bar">
+                      <span className="sentiment-label">🌱 Hope</span>
+                      <div className="bar-container">
+                        <div className="bar-fill hope" style={{ width: `${percentages.hope}%` }} />
+                      </div>
+                      <span className="sentiment-value">{percentages.hope}%</span>
+                    </div>
+
+                    <div className="sentiment-bar">
+                      <span className="sentiment-label">💰 Greed</span>
+                      <div className="bar-container">
+                        <div className="bar-fill greed" style={{ width: `${percentages.greed}%` }} />
+                      </div>
+                      <span className="sentiment-value">{percentages.greed}%</span>
+                    </div>
+
+                    <div className="sentiment-bar">
+                      <span className="sentiment-label">😨 Fear</span>
+                      <div className="bar-container">
+                        <div className="bar-fill fear" style={{ width: `${percentages.fear}%` }} />
+                      </div>
+                      <span className="sentiment-value">{percentages.fear}%</span>
+                    </div>
+
+                    <div className="sentiment-bar">
+                      <span className="sentiment-label">🔮 Mystery</span>
+                      <div className="bar-container">
+                        <div className="bar-fill mystery" style={{ width: `${percentages.mystery}%` }} />
+                      </div>
+                      <span className="sentiment-value">{percentages.mystery}%</span>
+                    </div>
+                  </div>
+
+                  {/* Daily Prophecy */}
+                  {prophecy && (
+                    <div className="daily-prophecy">
+                      <h4 className="prophecy-heading">🔮 Today's Prophecy</h4>
+                      <p className={`prophecy-text ${prophecy.ready ? '' : 'prophecy-blur'}`}>
+                        {prophecy.text || 'Awaiting the seed\'s vision...'}
+                      </p>
+                      {!prophecy.ready && (
+                        <p className="prophecy-hint">
+                          ✨ Will be revealed once posted to X.com
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
+          </section>
+        )}
 
         <section className="dashboard-card dashboard-card--glow">
           <h2 className="section-title">Recent Transactions</h2>
