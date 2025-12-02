@@ -179,6 +179,24 @@ async function fetchAiLogsForTransactions(transactions, balanceSol, walletAddres
       );
     }
 
+    // Process sentiments if provided
+    if (data.sentiments && Array.isArray(data.sentiments)) {
+      // Update sentiment for each non-empty sentiment
+      for (const sentiment of data.sentiments) {
+        if (sentiment && ['hope', 'greed', 'fear', 'mystery'].includes(sentiment)) {
+          try {
+            await fetch('/.netlify/functions/sentiment-update', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ sentiment })
+            });
+          } catch (err) {
+            console.error('Failed to update sentiment:', err);
+          }
+        }
+      }
+    }
+
     // Normalize logs to match transaction count
     return transactions.map((_, idx) => {
       return typeof data.logs[idx] === "string"

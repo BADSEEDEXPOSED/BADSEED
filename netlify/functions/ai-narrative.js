@@ -173,6 +173,7 @@ exports.handler = async (event) => {
 
         // Process each transaction
         const logs = [];
+        const sentiments = [];
 
         for (const tx of txs) {
             const memo = tx.memo || null;
@@ -186,8 +187,7 @@ exports.handler = async (event) => {
             const easterEggResponse = checkEasterEgg(memo, identity);
             if (easterEggResponse) {
                 logs.push(easterEggResponse);
-                // Still update sentiment for easter eggs (default to "mystery")
-                await updateSentiment('mystery');
+                sentiments.push('mystery'); // Easter eggs default to mystery
                 continue;
             }
 
@@ -251,15 +251,14 @@ exports.handler = async (event) => {
                 response = responseMatch[1].trim();
             }
 
-            // Update sentiment
-            await updateSentiment(sentiment);
-
+            // Store sentiment to return (client will update server)
             logs.push(response);
+            sentiments.push(sentiment);
         }
 
         return {
             statusCode: 200,
-            body: JSON.stringify({ logs }),
+            body: JSON.stringify({ logs, sentiments }),
         };
     } catch (err) {
         console.error("ai-narrative error:", err);
