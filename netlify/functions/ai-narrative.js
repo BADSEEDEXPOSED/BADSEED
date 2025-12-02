@@ -1,5 +1,6 @@
 // Netlify Serverless Function: AI Narrative Generator for BAD SEED
 // Endpoint: /.netlify/functions/ai-narrative
+// Version: 2.0 - AI Personality Enhancement (3 identities, sentiment tracking)
 
 const fs = require('fs');
 const path = require('path');
