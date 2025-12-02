@@ -1,92 +1,109 @@
-// Storage abstraction layer for Netlify Functions
-// Uses Netlify Blobs in production, falls back to fs locally
+// Storage abstraction using JSONBin.io for serverless persistence
+// Free tier: 10k requests/month, perfect for this use case
 
-const fs = require('fs');
-const path = require('path');
+const JSONBIN_API_KEY = process.env.JSONBIN_API_KEY || '$2a$10$mock.key.for.local.dev';
+const JSONBIN_BASE_URL = 'https://api.jsonbin.io/v3/b';
 
-// Detect if running in Netlify production environment
-const IS_PRODUCTION = process.env.NETLIFY && !process.env.NETLIFY_DEV;
-
-let getStore;
-try {
-    const blobsModule = require('@netlify/blobs');
-    getStore = blobsModule.getStore;
-} catch (err) {
-    console.error('Failed to load @netlify/blobs:', err.message);
-    getStore = null;
-}
+// Bin IDs for different stores (will be created on first use)
+const BIN_IDS = {
+    'queue-data': process.env.QUEUE_BIN_ID || null,
+    'sentiment-data': process.env.SENTIMENT_BIN_ID || null
+};
 
 class Storage {
     constructor(storeName) {
         this.storeName = storeName;
-        if (IS_PRODUCTION && getStore) {
-            try {
-                this.store = getStore(storeName);
-                console.log(`[Storage] Using Netlify Blobs for store: ${storeName}`);
-            } catch (err) {
-                console.error(`[Storage] Failed to initialize Netlify Blobs:`, err);
-                this.store = null;
-            }
-        } else {
-            // Local filesystem fallback
-            this.localPath = path.join(__dirname, '..', `${storeName}.json`);
-            console.log(`[Storage] Using local filesystem: ${this.localPath}`);
+        this.binId = BIN_IDS[storeName];
+        this.cache = null;
+        this.cacheTime = 0;
+        this.CACHE_TTL = 5000; // 5 seconds cache
+    }
+
+    async _fetch(url, options = {}) {
+        const headers = {
+            'Content-Type': 'application/json',
+            'X-Master-Key': JSONBIN_API_KEY,
+            ...options.headers
+        };
+
+        const response = await fetch(url, { ...options, headers });
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
+        return response.json();
+    }
+
+    async _ensureBin() {
+        if (this.binId) return this.binId;
+
+        // Create a new bin
+        const data = { [this.storeName]: {} };
+        const result = await this._fetch(JSONBIN_BASE_URL, {
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
+
+        this.binId = result.metadata.id;
+        console.log(`[Storage] Created new bin for ${this.storeName}: ${this.binId}`);
+        console.log(`[Storage] Add to .env: ${this.storeName.toUpperCase().replace('-', '_')}_BIN_ID=${this.binId}`);
+
+        return this.binId;
+    }
+
+    async _loadAll() {
+        const now = Date.now();
+        if (this.cache && (now - this.cacheTime) < this.CACHE_TTL) {
+            return this.cache;
+        }
+
+        const binId = await this._ensureBin();
+        const result = await this._fetch(`${JSONBIN_BASE_URL}/${binId}/latest`);
+
+        this.cache = result.record || {};
+        this.cacheTime = now;
+        return this.cache;
+    }
+
+    async _saveAll(data) {
+        const binId = await this._ensureBin();
+        await this._fetch(`${JSONBIN_BASE_URL}/${binId}`, {
+            method: 'PUT',
+            body: JSON.stringify(data)
+        });
+
+        this.cache = data;
+        this.cacheTime = Date.now();
     }
 
     async get(key) {
         try {
-            if (IS_PRODUCTION && this.store) {
-                const value = await this.store.get(key);
-                return value ? JSON.parse(value) : null;
-            } else {
-                // Local fs read
-                if (fs.existsSync(this.localPath)) {
-                    const data = JSON.parse(fs.readFileSync(this.localPath, 'utf8'));
-                    return data[key] || null;
-                }
-                return null;
-            }
+            const data = await this._loadAll();
+            return data[key] || null;
         } catch (err) {
-            console.error(`[Storage] Get error for key "${key}":`, err);
+            console.error(`[Storage] Get error for key "${key}":`, err.message);
             return null;
         }
     }
 
     async set(key, value) {
         try {
-            if (IS_PRODUCTION && this.store) {
-                await this.store.set(key, JSON.stringify(value));
-                console.log(`[Storage] Set key "${key}" in Netlify Blobs`);
-            } else {
-                // Local fs write
-                let data = {};
-                if (fs.existsSync(this.localPath)) {
-                    data = JSON.parse(fs.readFileSync(this.localPath, 'utf8'));
-                }
-                data[key] = value;
-                fs.writeFileSync(this.localPath, JSON.stringify(data, null, 2));
-                console.log(`[Storage] Set key "${key}" in local file`);
-            }
+            const data = await this._loadAll();
+            data[key] = value;
+            await this._saveAll(data);
+            console.log(`[Storage] Set key "${key}" in ${this.storeName}`);
         } catch (err) {
-            console.error(`[Storage] Set error for key "${key}":`, err);
+            console.error(`[Storage] Set error for key "${key}":`, err.message);
             throw err;
         }
     }
 
     async delete(key) {
         try {
-            if (IS_PRODUCTION && this.store) {
-                await this.store.delete(key);
-            } else {
-                if (fs.existsSync(this.localPath)) {
-                    const data = JSON.parse(fs.readFileSync(this.localPath, 'utf8'));
-                    delete data[key];
-                    fs.writeFileSync(this.localPath, JSON.stringify(data, null, 2));
-                }
-            }
+            const data = await this._loadAll();
+            delete data[key];
+            await this._saveAll(data);
         } catch (err) {
-            console.error(`[Storage] Delete error for key "${key}":`, err);
+            console.error(`[Storage] Delete error for key "${key}":`, err.message);
         }
     }
 }
