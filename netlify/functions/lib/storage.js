@@ -20,26 +20,46 @@ class Storage {
     }
 
     async _fetch(url, options = {}) {
-        // Use dynamic import for node-fetch (ESM only)
-        const fetch = await import('node-fetch').then(mod => mod.default);
+        const https = require('https');
+        const { URL } = require('url');
 
-        const headers = {
-            'Content-Type': 'application/json',
-            'X-Master-Key': JSONBIN_API_KEY,
-            ...options.headers
-        };
+        return new Promise((resolve, reject) => {
+            const parsedUrl = new URL(url);
+            const requestOptions = {
+                method: options.method || 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Master-Key': JSONBIN_API_KEY,
+                    ...options.headers
+                }
+            };
 
-        try {
-            const response = await fetch(url, { ...options, headers });
-            if (!response.ok) {
-                const text = await response.text();
-                throw new Error(`HTTP ${response.status}: ${response.statusText} - ${text}`);
+            const req = https.request(parsedUrl, requestOptions, (res) => {
+                let data = '';
+                res.on('data', (chunk) => data += chunk);
+                res.on('end', () => {
+                    if (res.statusCode >= 200 && res.statusCode < 300) {
+                        try {
+                            resolve(JSON.parse(data));
+                        } catch (e) {
+                            reject(new Error('Invalid JSON response'));
+                        }
+                    } else {
+                        reject(new Error(`HTTP ${res.statusCode}: ${data}`));
+                    }
+                });
+            });
+
+            req.on('error', (err) => {
+                console.error('[Storage] Request error:', err);
+                reject(err);
+            });
+
+            if (options.body) {
+                req.write(options.body);
             }
-            return response.json();
-        } catch (err) {
-            console.error('[Storage] Fetch error:', err);
-            throw err;
-        }
+            req.end();
+        });
     }
 
     async _ensureBin() {
