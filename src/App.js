@@ -1151,7 +1151,7 @@ function App() {
                     <div className="queue-item-header">
                       <span className="queue-item-number">#{idx + 1}</span>
                       <span className="queue-item-time">
-                        {item.timestamp ? new Date(item.timestamp).toLocaleString() : 'N/A'}
+                        {item.createdAt ? new Date(item.createdAt).toLocaleString() : 'N/A'}
                       </span>
                     </div>
                     <div className="queue-item-content">
