@@ -28,7 +28,11 @@ const addToQueue = async ({ memo, aiLog }) => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ memo, aiLog }),
     });
-    if (!res.ok) throw new Error(`Queue add failed: ${res.status}`);
+    if (!res.ok) {
+        const errText = await res.text();
+        console.error(`Queue add failed: ${res.status}`, errText);
+        throw new Error(`Queue add failed: ${res.status} - ${errText}`);
+    }
     return await res.json();
 };
 

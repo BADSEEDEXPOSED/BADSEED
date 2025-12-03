@@ -185,11 +185,15 @@ async function fetchAiLogsForTransactions(transactions, balanceSol, walletAddres
       for (const sentiment of data.sentiments) {
         if (sentiment && ['hope', 'greed', 'fear', 'mystery'].includes(sentiment)) {
           try {
-            await fetch('/.netlify/functions/sentiment-update', {
+            const sentRes = await fetch('/.netlify/functions/sentiment-update', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ sentiment })
             });
+            if (!sentRes.ok) {
+              const errText = await sentRes.text();
+              console.error('Sentiment update failed:', sentRes.status, errText);
+            }
           } catch (err) {
             console.error('Failed to update sentiment:', err);
           }
