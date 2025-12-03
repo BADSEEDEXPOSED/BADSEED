@@ -29,7 +29,7 @@ class Storage {
                 method: options.method || 'GET',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-Master-Key': JSONBIN_API_KEY,
+                    'X-Access-Key': JSONBIN_API_KEY,
                     ...options.headers
                 }
             };
