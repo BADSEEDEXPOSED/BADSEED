@@ -33,7 +33,12 @@ const addToQueue = async ({ memo, aiLog }) => {
         console.error(`Queue add failed: ${res.status}`, errText);
         throw new Error(`Queue add failed: ${res.status} - ${errText}`);
     }
-    return await res.json();
+    const data = await res.json();
+    if (data.binId) {
+        console.warn("🚨 SAVE THIS TO NETLIFY ENV VARS 🚨");
+        console.log("QUEUE_BIN_ID=" + data.binId);
+    }
+    return data;
 };
 
 const removeFromQueue = async (ids) => {
