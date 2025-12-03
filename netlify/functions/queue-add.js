@@ -55,7 +55,11 @@ exports.handler = async (event) => {
         console.error('Queue add error:', error);
         return {
             statusCode: 500,
-            body: JSON.stringify({ error: 'Failed to add to queue' })
+            body: JSON.stringify({
+                error: 'Failed to add to queue',
+                details: error.message,
+                stack: error.stack
+            })
         };
     }
 };

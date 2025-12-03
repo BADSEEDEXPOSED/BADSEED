@@ -47,7 +47,10 @@ exports.handler = async (event) => {
         console.error('Error updating sentiment:', error);
         return {
             statusCode: 500,
-            body: JSON.stringify({ error: error.message })
+            body: JSON.stringify({
+                error: error.message,
+                stack: error.stack
+            })
         };
     }
 };

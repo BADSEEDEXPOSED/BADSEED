@@ -20,17 +20,26 @@ class Storage {
     }
 
     async _fetch(url, options = {}) {
+        // Use dynamic import for node-fetch (ESM only)
+        const fetch = await import('node-fetch').then(mod => mod.default);
+
         const headers = {
             'Content-Type': 'application/json',
             'X-Master-Key': JSONBIN_API_KEY,
             ...options.headers
         };
 
-        const response = await fetch(url, { ...options, headers });
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        try {
+            const response = await fetch(url, { ...options, headers });
+            if (!response.ok) {
+                const text = await response.text();
+                throw new Error(`HTTP ${response.status}: ${response.statusText} - ${text}`);
+            }
+            return response.json();
+        } catch (err) {
+            console.error('[Storage] Fetch error:', err);
+            throw err;
         }
-        return response.json();
     }
 
     async _ensureBin() {
