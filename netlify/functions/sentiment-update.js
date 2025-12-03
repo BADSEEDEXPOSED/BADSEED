@@ -41,7 +41,7 @@ exports.handler = async (event) => {
                 'Content-Type': 'application/json',
                 'Access-Control-Allow-Origin': '*'
             },
-            body: JSON.stringify({ success: true, data })
+            body: JSON.stringify({ success: true, data, binId: storage.binId })
         };
     } catch (error) {
         console.error('Error updating sentiment:', error);

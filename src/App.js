@@ -193,6 +193,12 @@ async function fetchAiLogsForTransactions(transactions, balanceSol, walletAddres
             if (!sentRes.ok) {
               const errText = await sentRes.text();
               console.error('Sentiment update failed:', sentRes.status, errText);
+            } else {
+              const sentData = await sentRes.json();
+              if (sentData.binId) {
+                console.warn("🚨 SAVE THIS TO NETLIFY ENV VARS 🚨");
+                console.log("SENTIMENT_BIN_ID=" + sentData.binId);
+              }
             }
           } catch (err) {
             console.error('Failed to update sentiment:', err);

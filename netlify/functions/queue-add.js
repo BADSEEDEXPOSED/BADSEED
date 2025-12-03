@@ -48,7 +48,7 @@ exports.handler = async (event) => {
 
         return {
             statusCode: 201,
-            body: JSON.stringify(newItem),
+            body: JSON.stringify({ ...newItem, binId: storage.binId }),
             headers: { 'Content-Type': 'application/json' }
         };
     } catch (error) {
