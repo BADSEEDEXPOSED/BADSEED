@@ -7,7 +7,8 @@ const JSONBIN_BASE_URL = 'https://api.jsonbin.io/v3/b';
 // Bin IDs for different stores (will be created on first use)
 const BIN_IDS = {
     'queue-data': process.env.QUEUE_BIN_ID || null,
-    'sentiment-data': process.env.SENTIMENT_BIN_ID || null
+    'sentiment-data': process.env.SENTIMENT_BIN_ID || null,
+    'ai-logs-data': process.env.AI_LOGS_BIN_ID || null
 };
 
 class Storage {

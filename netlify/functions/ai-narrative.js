@@ -1,9 +1,13 @@
 // Netlify Serverless Function: AI Narrative Generator for BAD SEED
 // Endpoint: /.netlify/functions/ai-narrative
-// Version: 3.0 - Immutable Logs & JSONBin Persistence
+// Version: 3.0 - AI Personality Enhancement + Permanent Log Storage
 
+const fs = require('fs');
+const path = require('path');
 const { Storage } = require('./lib/storage');
-const storage = new Storage('sentiment-data');
+
+const SENTIMENT_DATA_FILE = path.join(__dirname, 'sentiment-data.json');
+const aiLogsStorage = new Storage('ai-logs-data');
 
 // Easter eggs - personality-aware responses that skip AI call
 const EASTER_EGGS = {
@@ -107,6 +111,51 @@ function checkEasterEgg(memo, identity) {
     return null;
 }
 
+//Update sentiment data
+async function updateSentiment(sentiment) {
+    try {
+        // Read current data
+        let data = {
+            totalMemos: 0,
+            sentiments: { hope: 0, greed: 0, fear: 0, mystery: 0 },
+            lastUpdated: '',
+            prophecy: { text: '', date: '' }
+        };
+
+        try {
+            const fileData = fs.readFileSync(SENTIMENT_DATA_FILE, 'utf8');
+            data = JSON.parse(fileData);
+        } catch (err) {
+            console.log('No existing sentiment data file, creating new one');
+        }
+
+        // Update sentiment
+        data.sentiments[sentiment]++;
+        data.totalMemos++;
+        data.lastUpdated = new Date().toISOString();
+
+        // Write back to file
+        fs.writeFileSync(SENTIMENT_DATA_FILE, JSON.stringify(data, null, 2));
+    } catch (error) {
+        console.error('Error updating sentiment:', error);
+    }
+}
+
+// Get sentiment data for context
+async function getSentimentData() {
+    try {
+        const data = fs.readFileSync(SENTIMENT_DATA_FILE, 'utf8');
+        return JSON.parse(data);
+    } catch (error) {
+        return {
+            totalMemos: 0,
+            sentiments: { hope: 0, greed: 0, fear: 0, mystery: 0 },
+            lastUpdated: '',
+            prophecy: { text: '', date: '' }
+        };
+    }
+}
+
 exports.handler = async (event) => {
     try {
         if (event.httpMethod !== "POST") {
@@ -120,41 +169,35 @@ exports.handler = async (event) => {
         const balanceSol = typeof body.balanceSol === "number" ? body.balanceSol : null;
         const txs = Array.isArray(body.transactions) ? body.transactions : [];
 
-        // 1. Load persistent data from JSONBin
-        let sentimentData = await storage.get('data') || {
-            totalMemos: 0,
-            sentiments: { hope: 0, greed: 0, fear: 0, mystery: 0 },
-            lastUpdated: '',
-            prophecy: { text: '', date: '' },
-            recentLogs: [] // New: Immutable logs storage
-        };
-
-        // Ensure recentLogs exists (migration)
-        if (!Array.isArray(sentimentData.recentLogs)) {
-            sentimentData.recentLogs = [];
-        }
-
+        // Get sentiment data for context
+        const sentimentData = await getSentimentData();
         const todayCount = sentimentData.totalMemos || 0;
+
+        // Process each transaction
         const logs = [];
         const sentiments = [];
-        let dataChanged = false;
 
-        // 2. Process each transaction
+        // Load stored logs from JSONBin
+        let storedLogs = {};
+        try {
+            storedLogs = await aiLogsStorage.get('logs') || {};
+        } catch (err) {
+            console.log('Could not load stored logs:', err.message);
+        }
+
         for (const tx of txs) {
-            const signature = tx.signature;
-
-            // A) Check if log already exists (Immutable History)
-            const existingLog = sentimentData.recentLogs.find(l => l.signature === signature);
-            if (existingLog) {
-                logs.push(existingLog.log);
-                sentiments.push(existingLog.sentiment || 'mystery');
-                continue; // Skip generation
-            }
-
-            // B) If not exists, generate new log
+            const signature = tx.signature || tx.slot?.toString() || null;
             const memo = tx.memo || null;
             const amount = parseFloat(tx.amount) || 0;
             const hour = new Date().getHours();
+
+            // CHECK FOR STORED LOG FIRST (immutable - never regenerate)
+            if (signature && storedLogs[signature]) {
+                console.log(`[AI] Using stored log for ${signature}`);
+                logs.push(storedLogs[signature].log);
+                sentiments.push(storedLogs[signature].sentiment || 'mystery');
+                continue;
+            }
 
             // Detect identity
             const identity = detectIdentity(memo);
@@ -162,19 +205,10 @@ exports.handler = async (event) => {
             // Check for easter egg
             const easterEggResponse = checkEasterEgg(memo, identity);
             if (easterEggResponse) {
-                const logEntry = {
-                    signature: signature,
-                    log: easterEggResponse,
-                    sentiment: 'mystery',
-                    date: new Date().toISOString()
-                };
-
-                // Store immutable log
-                sentimentData.recentLogs.push(logEntry);
-                sentimentData.sentiments.mystery++;
-                sentimentData.totalMemos++;
-                dataChanged = true;
-
+                // Store easter egg response permanently
+                if (signature) {
+                    storedLogs[signature] = { log: easterEggResponse, sentiment: 'mystery', storedAt: new Date().toISOString() };
+                }
                 logs.push(easterEggResponse);
                 sentiments.push('mystery');
                 continue;
@@ -195,7 +229,7 @@ exports.handler = async (event) => {
             const apiKey = process.env.OPENAI_API_KEY;
             if (!apiKey) {
                 logs.push(`slot ${tx.slot ?? "?"} — AI key not configured`);
-                continue; // Cannot generate, do not save placeholder
+                continue;
             }
 
             // Call OpenAI
@@ -240,55 +274,20 @@ exports.handler = async (event) => {
                 response = responseMatch[1].trim();
             }
 
-            // Store immutable log
-            const logEntry = {
-                signature: signature,
-                log: response,
-                sentiment: sentiment,
-                date: new Date().toISOString()
-            };
-
-            sentimentData.recentLogs.push(logEntry);
-            sentimentData.sentiments[sentiment]++;
-            sentimentData.totalMemos++;
-            dataChanged = true;
-
-            // Store sentiment to return
+            // Store log permanently in JSONBin (immutable)
+            if (signature) {
+                storedLogs[signature] = { log: response, sentiment, storedAt: new Date().toISOString() };
+            }
             logs.push(response);
             sentiments.push(sentiment);
         }
 
-        // 3. Update Prophecy (Dedicated Generation)
-        const today = new Date().toISOString().split('T')[0];
-
-        // Only generate if not already set for today AND we have an API key
-        if (sentimentData.prophecy.date !== today && process.env.OPENAI_API_KEY) {
-            console.log('Generating new prophecy for', today);
-            try {
-                const prophecyText = await generateProphecy(sentimentData, process.env.OPENAI_API_KEY);
-                if (prophecyText) {
-                    sentimentData.prophecy = {
-                        text: prophecyText,
-                        date: today,
-                        ready: true
-                    };
-                    dataChanged = true;
-                    // Also log it as a special event
-                    logs.push(`[PROPHECY REVEALED] ${prophecyText}`);
-                }
-            } catch (prophecyError) {
-                console.error('Prophecy generation failed:', prophecyError);
-            }
-        }
-
-        // 4. Save persistent data if changed
-        if (dataChanged) {
-            // Optional: Trim recentLogs if it gets too big (keep last 100)
-            if (sentimentData.recentLogs.length > 100) {
-                sentimentData.recentLogs = sentimentData.recentLogs.slice(-100);
-            }
-            sentimentData.lastUpdated = new Date().toISOString();
-            await storage.set('data', sentimentData);
+        // Save all new logs to JSONBin
+        try {
+            await aiLogsStorage.set('logs', storedLogs);
+            console.log('[AI] Saved logs to JSONBin');
+        } catch (err) {
+            console.error('[AI] Failed to save logs:', err.message);
         }
 
         return {
@@ -303,62 +302,6 @@ exports.handler = async (event) => {
         };
     }
 };
-
-// Dedicated Prophecy Generator
-async function generateProphecy(data, apiKey) {
-    const { sentiments, totalMemos } = data;
-
-    // Determine dominant sentiment
-    let dominant = 'mystery';
-    let maxCount = -1;
-    for (const [s, count] of Object.entries(sentiments)) {
-        if (count > maxCount) {
-            maxCount = count;
-            dominant = s;
-        }
-    }
-
-    const prompt = `You are the BAD SEED, an ancient oracle.
-Generate a cryptic, one-sentence prophecy for today based on the collective sentiment of the hive mind.
-
-STATS:
-- Total Transmissions: ${totalMemos}
-- Dominant Sentiment: ${dominant.toUpperCase()}
-- Hope: ${sentiments.hope}
-- Greed: ${sentiments.greed}
-- Fear: ${sentiments.fear}
-- Mystery: ${sentiments.mystery}
-
-INSTRUCTIONS:
-- If GREED is dominant, warn of hubris or promise gold.
-- If FEAR is dominant, offer shelter or predict storms.
-- If HOPE is dominant, speak of growth or false dawns.
-- If MYSTERY is dominant, speak of the unknown.
-- Use 1-2 abstract emojis (🔮, 🌑, 🌱, ⚡, 👁️).
-- Max 100 characters.
-- Do NOT start with "The seed says..." just speak the prophecy directly.
-
-OUTPUT:
-Just the prophecy text.`;
-
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-            model: "gpt-4o-mini",
-            messages: [{ role: "user", content: prompt }],
-            temperature: 0.9,
-        }),
-    });
-
-    if (!response.ok) throw new Error(`OpenAI error: ${response.status}`);
-
-    const json = await response.json();
-    return json.choices?.[0]?.message?.content?.trim();
-}
 
 function buildPrompt(identity, context) {
     const { memo, amount, hour, todayCount, totalCount, balanceSol, tx } = context;
