@@ -258,17 +258,26 @@ exports.handler = async (event) => {
             sentiments.push(sentiment);
         }
 
-        // 3. Update Prophecy (if we generated new logs)
-        if (logs.length > 0) {
-            const today = new Date().toISOString().split('T')[0];
-            // Only update if not already set for today
-            if (sentimentData.prophecy.date !== today) {
-                sentimentData.prophecy = {
-                    text: logs[0], // Use the first log of the batch as the prophecy
-                    date: today,
-                    ready: true
-                };
-                dataChanged = true;
+        // 3. Update Prophecy (Dedicated Generation)
+        const today = new Date().toISOString().split('T')[0];
+
+        // Only generate if not already set for today AND we have an API key
+        if (sentimentData.prophecy.date !== today && process.env.OPENAI_API_KEY) {
+            console.log('Generating new prophecy for', today);
+            try {
+                const prophecyText = await generateProphecy(sentimentData, process.env.OPENAI_API_KEY);
+                if (prophecyText) {
+                    sentimentData.prophecy = {
+                        text: prophecyText,
+                        date: today,
+                        ready: true
+                    };
+                    dataChanged = true;
+                    // Also log it as a special event
+                    logs.push(`[PROPHECY REVEALED] ${prophecyText}`);
+                }
+            } catch (prophecyError) {
+                console.error('Prophecy generation failed:', prophecyError);
             }
         }
 
@@ -294,6 +303,62 @@ exports.handler = async (event) => {
         };
     }
 };
+
+// Dedicated Prophecy Generator
+async function generateProphecy(data, apiKey) {
+    const { sentiments, totalMemos } = data;
+
+    // Determine dominant sentiment
+    let dominant = 'mystery';
+    let maxCount = -1;
+    for (const [s, count] of Object.entries(sentiments)) {
+        if (count > maxCount) {
+            maxCount = count;
+            dominant = s;
+        }
+    }
+
+    const prompt = `You are the BAD SEED, an ancient oracle.
+Generate a cryptic, one-sentence prophecy for today based on the collective sentiment of the hive mind.
+
+STATS:
+- Total Transmissions: ${totalMemos}
+- Dominant Sentiment: ${dominant.toUpperCase()}
+- Hope: ${sentiments.hope}
+- Greed: ${sentiments.greed}
+- Fear: ${sentiments.fear}
+- Mystery: ${sentiments.mystery}
+
+INSTRUCTIONS:
+- If GREED is dominant, warn of hubris or promise gold.
+- If FEAR is dominant, offer shelter or predict storms.
+- If HOPE is dominant, speak of growth or false dawns.
+- If MYSTERY is dominant, speak of the unknown.
+- Use 1-2 abstract emojis (🔮, 🌑, 🌱, ⚡, 👁️).
+- Max 100 characters.
+- Do NOT start with "The seed says..." just speak the prophecy directly.
+
+OUTPUT:
+Just the prophecy text.`;
+
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+            model: "gpt-4o-mini",
+            messages: [{ role: "user", content: prompt }],
+            temperature: 0.9,
+        }),
+    });
+
+    if (!response.ok) throw new Error(`OpenAI error: ${response.status}`);
+
+    const json = await response.json();
+    return json.choices?.[0]?.message?.content?.trim();
+}
 
 function buildPrompt(identity, context) {
     const { memo, amount, hour, todayCount, totalCount, balanceSol, tx } = context;
