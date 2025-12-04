@@ -29,7 +29,7 @@ class Storage {
                 method: options.method || 'GET',
                 headers: {
                     'Content-Type': 'application/json',
-                    [process.env.NETLIFY_DEV ? 'X-Master-Key' : 'X-Access-Key']: JSONBIN_API_KEY,
+                    'X-Master-Key': JSONBIN_API_KEY,
                     ...options.headers
                 }
             };
