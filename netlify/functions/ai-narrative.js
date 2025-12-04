@@ -1,11 +1,9 @@
 // Netlify Serverless Function: AI Narrative Generator for BAD SEED
 // Endpoint: /.netlify/functions/ai-narrative
-// Version: 2.0 - AI Personality Enhancement (3 identities, sentiment tracking)
+// Version: 3.0 - Immutable Logs & JSONBin Persistence
 
-const fs = require('fs');
-const path = require('path');
-
-const SENTIMENT_DATA_FILE = path.join(__dirname, 'sentiment-data.json');
+const { Storage } = require('./lib/storage');
+const storage = new Storage('sentiment-data');
 
 // Easter eggs - personality-aware responses that skip AI call
 const EASTER_EGGS = {
@@ -109,51 +107,6 @@ function checkEasterEgg(memo, identity) {
     return null;
 }
 
-//Update sentiment data
-async function updateSentiment(sentiment) {
-    try {
-        // Read current data
-        let data = {
-            totalMemos: 0,
-            sentiments: { hope: 0, greed: 0, fear: 0, mystery: 0 },
-            lastUpdated: '',
-            prophecy: { text: '', date: '' }
-        };
-
-        try {
-            const fileData = fs.readFileSync(SENTIMENT_DATA_FILE, 'utf8');
-            data = JSON.parse(fileData);
-        } catch (err) {
-            console.log('No existing sentiment data file, creating new one');
-        }
-
-        // Update sentiment
-        data.sentiments[sentiment]++;
-        data.totalMemos++;
-        data.lastUpdated = new Date().toISOString();
-
-        // Write back to file
-        fs.writeFileSync(SENTIMENT_DATA_FILE, JSON.stringify(data, null, 2));
-    } catch (error) {
-        console.error('Error updating sentiment:', error);
-    }
-}
-
-// Get sentiment data for context
-async function getSentimentData() {
-    try {
-        const data = fs.readFileSync(SENTIMENT_DATA_FILE, 'utf8');
-        return JSON.parse(data);
-    } catch (error) {
-        return {
-            totalMemos: 0,
-            sentiments: { hope: 0, greed: 0, fear: 0, mystery: 0 },
-            lastUpdated: '',
-            prophecy: { text: '', date: '' }
-        };
-    }
-}
-
 exports.handler = async (event) => {
     try {
         if (event.httpMethod !== "POST") {
@@ -167,15 +120,38 @@ exports.handler = async (event) => {
         const balanceSol = typeof body.balanceSol === "number" ? body.balanceSol : null;
         const txs = Array.isArray(body.transactions) ? body.transactions : [];
 
-        // Get sentiment data for context
-        const sentimentData = await getSentimentData();
-        const todayCount = sentimentData.totalMemos || 0;
+        // 1. Load persistent data from JSONBin
+        let sentimentData = await storage.get('data') || {
+            totalMemos: 0,
+            sentiments: { hope: 0, greed: 0, fear: 0, mystery: 0 },
+            lastUpdated: '',
+            prophecy: { text: '', date: '' },
+            recentLogs: [] // New: Immutable logs storage
+        };
 
-        // Process each transaction
+        // Ensure recentLogs exists (migration)
+        if (!Array.isArray(sentimentData.recentLogs)) {
+            sentimentData.recentLogs = [];
+        }
+
+        const todayCount = sentimentData.totalMemos || 0;
         const logs = [];
         const sentiments = [];
+        let dataChanged = false;
 
+        // 2. Process each transaction
         for (const tx of txs) {
+            const signature = tx.signature;
+
+            // A) Check if log already exists (Immutable History)
+            const existingLog = sentimentData.recentLogs.find(l => l.signature === signature);
+            if (existingLog) {
+                logs.push(existingLog.log);
+                sentiments.push(existingLog.sentiment || 'mystery');
+                continue; // Skip generation
+            }
+
+            // B) If not exists, generate new log
             const memo = tx.memo || null;
             const amount = parseFloat(tx.amount) || 0;
             const hour = new Date().getHours();
@@ -186,8 +162,21 @@ exports.handler = async (event) => {
             // Check for easter egg
             const easterEggResponse = checkEasterEgg(memo, identity);
             if (easterEggResponse) {
+                const logEntry = {
+                    signature: signature,
+                    log: easterEggResponse,
+                    sentiment: 'mystery',
+                    date: new Date().toISOString()
+                };
+
+                // Store immutable log
+                sentimentData.recentLogs.push(logEntry);
+                sentimentData.sentiments.mystery++;
+                sentimentData.totalMemos++;
+                dataChanged = true;
+
                 logs.push(easterEggResponse);
-                sentiments.push('mystery'); // Easter eggs default to mystery
+                sentiments.push('mystery');
                 continue;
             }
 
@@ -206,7 +195,7 @@ exports.handler = async (event) => {
             const apiKey = process.env.OPENAI_API_KEY;
             if (!apiKey) {
                 logs.push(`slot ${tx.slot ?? "?"} — AI key not configured`);
-                continue;
+                continue; // Cannot generate, do not save placeholder
             }
 
             // Call OpenAI
@@ -251,9 +240,46 @@ exports.handler = async (event) => {
                 response = responseMatch[1].trim();
             }
 
-            // Store sentiment to return (client will update server)
+            // Store immutable log
+            const logEntry = {
+                signature: signature,
+                log: response,
+                sentiment: sentiment,
+                date: new Date().toISOString()
+            };
+
+            sentimentData.recentLogs.push(logEntry);
+            sentimentData.sentiments[sentiment]++;
+            sentimentData.totalMemos++;
+            dataChanged = true;
+
+            // Store sentiment to return
             logs.push(response);
             sentiments.push(sentiment);
+        }
+
+        // 3. Update Prophecy (if we generated new logs)
+        if (logs.length > 0) {
+            const today = new Date().toISOString().split('T')[0];
+            // Only update if not already set for today
+            if (sentimentData.prophecy.date !== today) {
+                sentimentData.prophecy = {
+                    text: logs[0], // Use the first log of the batch as the prophecy
+                    date: today,
+                    ready: true
+                };
+                dataChanged = true;
+            }
+        }
+
+        // 4. Save persistent data if changed
+        if (dataChanged) {
+            // Optional: Trim recentLogs if it gets too big (keep last 100)
+            if (sentimentData.recentLogs.length > 100) {
+                sentimentData.recentLogs = sentimentData.recentLogs.slice(-100);
+            }
+            sentimentData.lastUpdated = new Date().toISOString();
+            await storage.set('data', sentimentData);
         }
 
         return {

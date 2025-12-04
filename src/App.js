@@ -956,7 +956,7 @@ function App() {
                   {prophecy && (
                     <div className="daily-prophecy">
                       <h4 className="prophecy-heading">🔮 Today's Prophecy</h4>
-                      <p className={`prophecy-text ${prophecy.ready ? '' : 'prophecy-blur'}`}>
+                      <p className={`prophecy-text ${!isLocalEnvironment() && !prophecy.ready ? 'prophecy-blur' : ''}`}>
                         {prophecy.text || 'Awaiting the seed\'s vision...'}
                       </p>
                       {!prophecy.ready && (
