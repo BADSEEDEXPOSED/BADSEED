@@ -1,6 +1,7 @@
 const { Storage } = require('./lib/storage');
 
 const storage = new Storage('queue-data');
+const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
 exports.handler = async (event) => {
     if (event.httpMethod !== 'GET') {
@@ -8,7 +9,22 @@ exports.handler = async (event) => {
     }
 
     try {
-        const queue = await storage.get('queue') || [];
+        let queue = await storage.get('queue') || [];
+        const now = Date.now();
+
+        // Filter out items older than 24 hours
+        const originalLength = queue.length;
+        queue = queue.filter(item => {
+            const createdAt = new Date(item.createdAt).getTime();
+            const age = now - createdAt;
+            return age < TWENTY_FOUR_HOURS;
+        });
+
+        // If any items were removed, save the cleaned queue
+        if (queue.length < originalLength) {
+            await storage.set('queue', queue);
+            console.log(`[Queue] Cleaned up ${originalLength - queue.length} expired items`);
+        }
 
         return {
             statusCode: 200,

@@ -1,5 +1,8 @@
 const OAuth = require('oauth-1.0a');
 const crypto = require('crypto');
+const { Storage } = require('./lib/storage');
+
+const storage = new Storage('queue-data');
 
 exports.handler = async function (event, context) {
     // Only allow POST requests
@@ -11,7 +14,7 @@ exports.handler = async function (event, context) {
     }
 
     try {
-        const { text } = JSON.parse(event.body);
+        const { text, queueItemId } = JSON.parse(event.body);
 
         if (!text) {
             return {
@@ -21,7 +24,6 @@ exports.handler = async function (event, context) {
         }
 
         // X.com API credentials
-        // Support both standard and REACT_APP_ prefixed vars for convenience
         const consumer_key = process.env.X_CONSUMER_KEY || process.env.REACT_APP_X_CONSUMER_KEY;
         const consumer_secret = process.env.X_CONSUMER_SECRET || process.env.REACT_APP_X_CONSUMER_SECRET;
         const access_token = process.env.X_ACCESS_TOKEN || process.env.REACT_APP_X_ACCESS_TOKEN;
@@ -46,7 +48,6 @@ exports.handler = async function (event, context) {
         const request_data = {
             url: 'https://api.twitter.com/2/tweets',
             method: 'POST',
-            // Do NOT include body data in OAuth signature for JSON POST requests
         };
 
         const token = {
@@ -78,6 +79,23 @@ exports.handler = async function (event, context) {
 
         const data = await response.json();
         console.log("X.com post successful:", data);
+
+        // Remove the posted item from queue if queueItemId was provided
+        if (queueItemId) {
+            try {
+                let queue = await storage.get('queue') || [];
+                const originalLength = queue.length;
+                queue = queue.filter(item => item.id !== queueItemId);
+
+                if (queue.length < originalLength) {
+                    await storage.set('queue', queue);
+                    console.log(`[Queue] Removed posted item ${queueItemId} from queue`);
+                }
+            } catch (err) {
+                console.error('[Queue] Failed to remove posted item:', err.message);
+                // Don't fail the request, the post was successful
+            }
+        }
 
         return {
             statusCode: 200,
