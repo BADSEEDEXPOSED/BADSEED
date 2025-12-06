@@ -486,8 +486,22 @@ function App() {
     const queueArray = Array.isArray(currentQueue) ? currentQueue : [];
     const queuedSignatures = new Set(queueArray.map(item => item.hash || sha256(item.memo)));
 
+    const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
+    const now = Date.now();
+
     for (const tx of processedTxs) {
       if (tx.memo) {
+        // 1. Check age: Skip if transaction is older than 24 hours
+        // tx.blockTime is in seconds. If missing, we can't judge age (safe to skip or process? process risks loop. skip risks miss.)
+        // Let's assume valid blockTime for confirmed txs.
+        if (tx.blockTime) {
+          const txTimeMs = tx.blockTime * 1000;
+          if (now - txTimeMs > TWENTY_FOUR_HOURS_MS) {
+            // Too old, ignore
+            continue;
+          }
+        }
+
         // Check if this memo is already queued (using hash of memo)
         const memoHash = sha256(tx.memo);
         if (!queuedSignatures.has(memoHash)) {
