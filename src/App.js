@@ -1098,8 +1098,8 @@ function App() {
             </div>
           </div>
 
-          {/* Manual Queue Controls - Dev Only */}
-          {process.env.NODE_ENV === 'development' && (
+          {/* Manual Queue Controls - Dev or Admin Only */}
+          {(process.env.NODE_ENV === 'development' || (publicKey && publicKey.toBase58() === BAD_SEED_WALLET_ADDRESS)) && (
             <div style={{ display: 'flex', gap: '10px', marginBottom: '15px', justifyContent: 'center' }}>
               <button
                 onClick={async () => {
