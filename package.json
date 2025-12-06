@@ -2,6 +2,9 @@
   "name": "badseed-exposed",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "18.x"
+  },
   "dependencies": {
     "@solana/kit": "^3.0.3",
     "@solana/wallet-adapter-base": "^0.9.27",
