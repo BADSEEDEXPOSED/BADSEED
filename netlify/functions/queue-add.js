@@ -15,12 +15,21 @@ exports.handler = async (event) => {
         return { statusCode: 400, body: 'Invalid JSON' };
     }
 
-    const { memo, aiLog } = body;
+    const { memo, aiLog, timestamp } = body;
     if (!memo) {
         return { statusCode: 400, body: 'Missing memo' };
     }
 
     try {
+        // [NEW] Get posted history to prevent re-queuing old items
+        const history = await storage.get('posted-history') || [];
+        if (history.includes(memo)) {
+            return {
+                statusCode: 200,
+                body: JSON.stringify({ message: 'Already posted (history)', skipped: true })
+            };
+        }
+
         // Get current queue
         let queue = await storage.get('queue') || [];
 
@@ -38,7 +47,8 @@ exports.handler = async (event) => {
             id: randomUUID(),
             memo,
             aiLog: aiLog || '',
-            createdAt: new Date().toISOString()
+            // Use provided timestamp or fallback to now
+            createdAt: timestamp || new Date().toISOString()
         };
 
         queue.push(newItem);

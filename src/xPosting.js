@@ -22,11 +22,11 @@ const fetchQueue = async () => {
     }
 };
 
-const addToQueue = async ({ memo, aiLog }) => {
+const addToQueue = async ({ memo, aiLog, timestamp }) => {
     const res = await fetch(`${API_BASE}/queue-add`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ memo, aiLog }),
+        body: JSON.stringify({ memo, aiLog, timestamp }),
     });
     if (!res.ok) {
         const errText = await res.text();
@@ -65,11 +65,11 @@ const saveCounter = (counter) => {
 };
 
 // ---------- public API ----------
-export async function queueMemo(memo, aiLog) {
+export async function queueMemo(memo, aiLog, timestamp) {
     // Deduplication is handled server‑side; we just forward the memo.
     try {
-        await addToQueue({ memo, aiLog });
-        console.log("Memo queued via API:", memo);
+        await addToQueue({ memo, aiLog, timestamp });
+        console.log("Memo queued via API:", memo, timestamp || "(now)");
     } catch (e) {
         console.error("Failed to queue memo:", e);
     }

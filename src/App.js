@@ -494,8 +494,10 @@ function App() {
           const aiLog = logsArray[processedTxs.indexOf(tx)];
           if (aiLog) {
             // Queue memo + AI log for later X.com posting
-            queueMemo(tx.memo, aiLog);
-            console.log("Queued memo:", tx.memo, "with AI log:", aiLog);
+            // Convert blockTime (seconds) to ISO string, or fallback to now
+            const txTime = tx.blockTime ? new Date(tx.blockTime * 1000).toISOString() : new Date().toISOString();
+            queueMemo(tx.memo, aiLog, txTime);
+            console.log("Queued memo:", tx.memo, "with AI log:", aiLog, "Timestamp:", txTime);
           }
         }
       }

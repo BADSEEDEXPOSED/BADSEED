@@ -84,12 +84,30 @@ exports.handler = async function (event, context) {
         if (queueItemId) {
             try {
                 let queue = await storage.get('queue') || [];
-                const originalLength = queue.length;
-                queue = queue.filter(item => item.id !== queueItemId);
 
-                if (queue.length < originalLength) {
-                    await storage.set('queue', queue);
-                    console.log(`[Queue] Removed posted item ${queueItemId} from queue`);
+                // Find the item to get its memo for history
+                const itemToRemove = queue.find(item => item.id === queueItemId);
+
+                if (itemToRemove) {
+                    const originalLength = queue.length;
+                    queue = queue.filter(item => item.id !== queueItemId);
+
+                    if (queue.length < originalLength) {
+                        await storage.set('queue', queue);
+                        console.log(`[Queue] Removed posted item ${queueItemId} from queue`);
+
+                        // Add memo to posted history
+                        if (itemToRemove.memo) {
+                            let history = await storage.get('posted-history') || [];
+                            // Keep history manageable size (e.g., last 100 items)
+                            if (!history.includes(itemToRemove.memo)) {
+                                history.push(itemToRemove.memo);
+                                if (history.length > 100) history.shift();
+                                await storage.set('posted-history', history);
+                                console.log('[Queue] Added memo to posted-history');
+                            }
+                        }
+                    }
                 }
             } catch (err) {
                 console.error('[Queue] Failed to remove posted item:', err.message);
