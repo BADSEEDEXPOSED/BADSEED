@@ -1054,107 +1054,148 @@ function App() {
                           {prophecy.text || 'Awaiting the seed\'s vision...'}
                         </p>
                         {!prophecy.ready && !isLocalEnvironment() && (
-                          <li className="tx-item">
-                            No recent transactions found for this address.
-                          </li>
-                        ) : (
+                          <p className="prophecy-hint">
+                            ✨ Will be revealed once posted to X.com
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+            </section>
+          )}
+
+            {/* Admin-Only Sentiment Rules Visualization */}
+            {isLocalEnvironment() && (
+              <div style={{
+                marginTop: '10px',
+                padding: '8px',
+                border: '1px dashed #666',
+                borderRadius: '4px',
+                fontSize: '0.65rem',
+                color: '#aaa',
+                background: 'rgba(0,0,0,0.3)',
+                marginBottom: '1rem'
+              }}>
+                <strong style={{ color: '#fff', display: 'block', marginBottom: '4px' }}>ADMIN: SENTIMENT LOGIC</strong>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
+                  <div>📤 <strong>Sol OUT:</strong> +2 Greed, +1 Fear</div>
+                  <div>📥 <strong>Sol IN:</strong> +2 Hope</div>
+                  <div>😶 <strong>No Memo:</strong> +1 Mystery</div>
+                  <div>🤖 <strong>AI Undecided:</strong> +1 Mystery</div>
+                  <div style={{ gridColumn: 'span 2', marginTop: '2px', fontStyle: 'italic', color: '#888' }}>
+                    * Mystery resets to 0% daily on Prophecy Reveal
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <section className="dashboard-card dashboard-card--glow">
+              <h2 className="section-title">Recent Transactions</h2>
+              <ul id="tx-list" className="tx-list">
+                {txItems.length === 0 ? (
+                  <li className="tx-item">
+                    No recent transactions found for this address.
+                  </li>
+                ) : (
                   txItems.map((tx, i) => {
                     const timeText = tx.blockTime
-                        ? new Date(tx.blockTime * 1000).toLocaleString()
-                        : "time unknown";
+                      ? new Date(tx.blockTime * 1000).toLocaleString()
+                      : "time unknown";
 
-                        const aiLog =
-                        aiLogs && typeof aiLogs[i] === "string"
+                    const aiLog =
+                      aiLogs && typeof aiLogs[i] === "string"
                         ? aiLogs[i]
                         : "[AI_LOG] awaiting interpretation…";
 
-                        // Direction colors
-                        const dirColor = tx.direction === "IN" ? "#a0ffa0" : "#d4a5a5";
-                        const dirArrow = tx.direction === "IN" ? "↓ IN" : "↑ OUT";
+                    // Direction colors
+                    const dirColor = tx.direction === "IN" ? "#a0ffa0" : "#d4a5a5";
+                    const dirArrow = tx.direction === "IN" ? "↓ IN" : "↑ OUT";
 
-                        return (
-                        <li key={tx.signature || `tx-${i}`} className="tx-item tx-row">
-                          {/* Left: existing tx details */}
-                          <div className="tx-main">
-                            {/* Signature */}
+                    return (
+                      <li key={tx.signature || `tx-${i}`} className="tx-item tx-row">
+                        {/* Left: existing tx details */}
+                        <div className="tx-main">
+                          {/* Signature */}
+                          <div style={{ marginBottom: "0.25rem" }}>
+                            <strong>Signature:</strong>{" "}
+                            <a
+                              href={`https://solscan.io/tx/${tx.signature}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{ color: "#c0c0c0", textDecoration: "none" }}
+                            >
+                              {tx.signature ? `${tx.signature.slice(0, 20)}...${tx.signature.slice(-20)}` : "(no signature)"}
+                            </a>
+                          </div>
+
+                          {/* Amount & Direction (New) */}
+                          {tx.amount && (
+                            <div style={{ marginBottom: "0.25rem", color: dirColor, fontWeight: "bold" }}>
+                              {dirArrow} {tx.amount} {tx.token}
+                            </div>
+                          )}
+
+                          {/* Status, Slot, Time on one line */}
+                          <div style={{ marginBottom: "0.25rem", fontSize: "0.9rem" }}>
+                            <strong>Status:</strong> {tx.confirmationStatus || "unknown"} • {" "}
+                            <strong>Slot:</strong>{" "}
+                            <a
+                              href={`https://solscan.io/block/${tx.slot}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{ color: "#c0c0c0", textDecoration: "none" }}
+                            >
+                              {tx.slot ?? "?"}
+                            </a> • {" "}
+                            <strong>Time:</strong> {timeText}
+                          </div>
+
+                          {/* Error if any */}
+                          {tx.err && (
+                            <div style={{ marginBottom: "0.25rem", color: "#d4a5a5" }}>
+                              <strong>Error:</strong> {JSON.stringify(tx.err)}
+                            </div>
+                          )}
+
+                          {/* Memo if any */}
+                          {tx.memo && (
                             <div style={{ marginBottom: "0.25rem" }}>
-                              <strong>Signature:</strong>{" "}
-                              <a
-                                href={`https://solscan.io/tx/${tx.signature}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                style={{ color: "#c0c0c0", textDecoration: "none" }}
-                              >
-                                {tx.signature ? `${tx.signature.slice(0, 20)}...${tx.signature.slice(-20)}` : "(no signature)"}
-                              </a>
+                              <span className="tx-memo-label">Memo:</span>
+                              <span className="tx-memo-text">{tx.memo}</span>
                             </div>
+                          )}
 
-                            {/* Amount & Direction (New) */}
-                            {tx.amount && (
-                              <div style={{ marginBottom: "0.25rem", color: dirColor, fontWeight: "bold" }}>
-                                {dirArrow} {tx.amount} {tx.token}
-                              </div>
-                            )}
-
-                            {/* Status, Slot, Time on one line */}
-                            <div style={{ marginBottom: "0.25rem", fontSize: "0.9rem" }}>
-                              <strong>Status:</strong> {tx.confirmationStatus || "unknown"} • {" "}
-                              <strong>Slot:</strong>{" "}
-                              <a
-                                href={`https://solscan.io/block/${tx.slot}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                style={{ color: "#c0c0c0", textDecoration: "none" }}
-                              >
-                                {tx.slot ?? "?"}
-                              </a> • {" "}
-                              <strong>Time:</strong> {timeText}
-                            </div>
-
-                            {/* Error if any */}
-                            {tx.err && (
-                              <div style={{ marginBottom: "0.25rem", color: "#d4a5a5" }}>
-                                <strong>Error:</strong> {JSON.stringify(tx.err)}
-                              </div>
-                            )}
-
-                            {/* Memo if any */}
-                            {tx.memo && (
-                              <div style={{ marginBottom: "0.25rem" }}>
-                                <span className="tx-memo-label">Memo:</span>
-                                <span className="tx-memo-text">{tx.memo}</span>
-                              </div>
-                            )}
-
-                            {/* Account */}
-                            <div style={{ fontSize: "0.9rem" }}>
-                              <strong>Account:</strong>{" "}
-                              <a
-                                href={`https://solscan.io/account/${BAD_SEED_WALLET_ADDRESS}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                style={{ color: "#c0c0c0", textDecoration: "none" }}
-                              >
-                                {BAD_SEED_WALLET_ADDRESS.slice(0, 20)}...
-                              </a>
-                            </div>
+                          {/* Account */}
+                          <div style={{ fontSize: "0.9rem" }}>
+                            <strong>Account:</strong>{" "}
+                            <a
+                              href={`https://solscan.io/account/${BAD_SEED_WALLET_ADDRESS}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{ color: "#c0c0c0", textDecoration: "none" }}
+                            >
+                              {BAD_SEED_WALLET_ADDRESS.slice(0, 20)}...
+                            </a>
                           </div>
+                        </div>
 
 
-                          {/* Right: AI terminal toast */}
-                          <div className="tx-ai-log">
-                            <div className="tx-ai-header">[BADSEED AI LOG]</div>
-                            <div className="tx-ai-body">{aiLog}</div>
-                          </div>
-                        </li>
-                        );
+                        {/* Right: AI terminal toast */}
+                        <div className="tx-ai-log">
+                          <div className="tx-ai-header">[BADSEED AI LOG]</div>
+                          <div className="tx-ai-body">{aiLog}</div>
+                        </div>
+                      </li>
+                    );
                   })
                 )}
-                      </ul>
+              </ul>
             </section >
 
-                  {/* X.com Post Queue section */ }
-                  < section id = "queue-section" className = "dashboard-card dashboard-card--glow post-queue-section" >
+            {/* X.com Post Queue section */}
+            < section id="queue-section" className="dashboard-card dashboard-card--glow post-queue-section" >
               <h2 className="section-title">🌱 X.com Post Queue</h2>
 
               <div className="queue-status">
@@ -1174,50 +1215,50 @@ function App() {
                 </div>
               </div>
 
-                {/* Manual Queue Controls - Dev or Admin Only */ }
-                {
-                  (process.env.NODE_ENV === 'development' || (publicKey && publicKey.toBase58() === BAD_SEED_WALLET_ADDRESS)) && (
-                    <div style={{ display: 'flex', gap: '10px', marginBottom: '15px', justifyContent: 'center' }}>
-                      <button
-                        onClick={async () => {
-                          const result = await forcePostNow();
-                          if (result.success) {
-                            alert("Post sent successfully!");
-                          } else {
-                            alert("Post failed: " + result.reason);
-                          }
+              {/* Manual Queue Controls - Dev or Admin Only */}
+              {
+                (process.env.NODE_ENV === 'development' || (publicKey && publicKey.toBase58() === BAD_SEED_WALLET_ADDRESS)) && (
+                  <div style={{ display: 'flex', gap: '10px', marginBottom: '15px', justifyContent: 'center' }}>
+                    <button
+                      onClick={async () => {
+                        const result = await forcePostNow();
+                        if (result.success) {
+                          alert("Post sent successfully!");
+                        } else {
+                          alert("Post failed: " + result.reason);
+                        }
+                        updateQueueDisplay();
+                      }}
+                      className="blacklist-btn"
+                      style={{ fontSize: '0.8rem', padding: '5px 10px' }}
+                    >
+                      ⚡ Force Post Now
+                    </button>
+                    <button
+                      onClick={() => {
+                        addTestItem();
+                        updateQueueDisplay();
+                      }}
+                      className="blacklist-btn"
+                      style={{ fontSize: '0.8rem', padding: '5px 10px' }}
+                    >
+                      🧪 Add Test Item
+                    </button>
+                    <button
+                      onClick={async () => {
+                        if (window.confirm("Are you sure you want to clear the queue? This will remove all pending posts.")) {
+                          await clearQueue();
                           updateQueueDisplay();
-                        }}
-                        className="blacklist-btn"
-                        style={{ fontSize: '0.8rem', padding: '5px 10px' }}
-                      >
-                        ⚡ Force Post Now
-                      </button>
-                      <button
-                        onClick={() => {
-                          addTestItem();
-                          updateQueueDisplay();
-                        }}
-                        className="blacklist-btn"
-                        style={{ fontSize: '0.8rem', padding: '5px 10px' }}
-                      >
-                        🧪 Add Test Item
-                      </button>
-                      <button
-                        onClick={async () => {
-                          if (window.confirm("Are you sure you want to clear the queue? This will remove all pending posts.")) {
-                            await clearQueue();
-                            updateQueueDisplay();
-                          }
-                        }}
-                        className="blacklist-btn"
-                        style={{ fontSize: '0.8rem', padding: '5px 10px', backgroundColor: '#ff4444' }}
-                      >
-                        🗑️ Clear Queue
-                      </button>
-                    </div>
-                  )
-                }
+                        }
+                      }}
+                      className="blacklist-btn"
+                      style={{ fontSize: '0.8rem', padding: '5px 10px', backgroundColor: '#ff4444' }}
+                    >
+                      🗑️ Clear Queue
+                    </button>
+                  </div>
+                )
+              }
 
               <div className="queue-items">
                 {postQueue.length === 0 ? (
