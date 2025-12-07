@@ -926,7 +926,7 @@ function App() {
               <span className="label">PERMANENCE</span>
               {archiveData.chaosMode ? (
                 <span className="value status-chaos">
-                  🔴 MODE: CHAOS
+                  🔴 TOPPLED
                   <span className="sub-value" style={{ display: 'block', fontSize: '0.8rem', marginTop: '4px', textAlign: 'right' }}>
                     {archiveData.pending.length} DAY{archiveData.pending.length !== 1 ? 'S' : ''} PENDING
                   </span>
@@ -948,16 +948,37 @@ function App() {
                 </span>
               )}
             </div>
+
+            {/* Schedule Info */}
+            <div style={{
+              fontSize: '0.75rem',
+              color: '#888',
+              marginTop: '8px',
+              paddingTop: '8px',
+              borderTop: '1px solid rgba(255,255,255,0.1)',
+              display: 'flex',
+              justifyContent: 'space-between'
+            }}>
+              <span>
+                <strong>Last:</strong>{" "}
+                {archiveData.history.length > 0
+                  ? new Date(archiveData.history[0].timestamp).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                  : "None"}
+              </span>
+              <span>
+                <strong>Next:</strong> 23:55 UTC
+              </span>
+            </div>
+
             <p style={{
               fontSize: '0.7rem',
-              color: '#888',
+              color: '#666',
               fontStyle: 'italic',
-              marginTop: '0',
-              lineHeight: '1.3',
-              borderTop: '1px solid rgba(255, 255, 255, 0.1)',
-              paddingTop: '8px'
+              marginTop: '6px',
+              textAlign: 'center'
             }}>
               Daily transaction logs are permanently crystalized on Arweave.
+
               If funds deplete ("Chaos Mode"), data auto-queues until the wallet is refilled.
             </p>
           </div>
