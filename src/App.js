@@ -994,8 +994,6 @@ function App() {
                 {/* Calculate percentages */}
                 {(() => {
                   const total = Object.values(sentimentData.sentiments).reduce((a, b) => a + b, 0);
-
-                  const total = Object.values(sentimentData.sentiments).reduce((a, b) => a + b, 0);
                   if (total === 0) return <p>Awaiting first transmission...</p>;
 
                   const percentages = {
