@@ -271,18 +271,30 @@ function App() {
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch sentiment data (poll every 2 minutes when page is visible)
-  useEffect(() => {
-    const fetchSentiment = async () => {
-      try {
-        const response = await fetch('/.netlify/functions/sentiment-get');
-        const data = await response.json();
-        setSentimentData(data);
-      } catch (error) {
-        console.error('Failed to fetch sentiment:', error);
-      }
-    };
+  // Fetch sentiment data
+  const fetchSentiment = async () => {
+    try {
+      const response = await fetch('/.netlify/functions/sentiment-get');
+      const data = await response.json();
+      setSentimentData(data);
+    } catch (error) {
+      console.error('Failed to fetch sentiment:', error);
+    }
+  };
 
+  // Fetch prophecy data
+  const fetchProphecy = async () => {
+    try {
+      const response = await fetch('/.netlify/functions/prophecy-get');
+      const data = await response.json();
+      setProphecy(data);
+    } catch (error) {
+      console.error('Failed to fetch prophecy:', error);
+    }
+  };
+
+  // Initial fetch and polling for Sentiment
+  useEffect(() => {
     fetchSentiment(); // Initial fetch
 
     const interval = setInterval(() => {
@@ -294,18 +306,8 @@ function App() {
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch prophecy data (poll every 5 minutes)
+  // Initial fetch and polling for Prophecy
   useEffect(() => {
-    const fetchProphecy = async () => {
-      try {
-        const response = await fetch('/.netlify/functions/prophecy-get');
-        const data = await response.json();
-        setProphecy(data);
-      } catch (error) {
-        console.error('Failed to fetch prophecy:', error);
-      }
-    };
-
     fetchProphecy(); // Initial fetch
 
     const interval = setInterval(fetchProphecy, 300000); // 5 minutes
