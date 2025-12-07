@@ -154,7 +154,7 @@ body::before {
 
 .seed-word {
   position: relative;
-  border-radius: 10px;
+  border-radius: 2px;
   padding: 12px 8px;
   text-align: center;
   font-size: 0.9rem;
@@ -202,7 +202,7 @@ body::before {
 /* ===== BUTTONS ===== */
 .btn {
   border: none;
-  border-radius: 999px;
+  border-radius: 2px;
   padding: 11px 28px;
   font-size: 0.95rem;
   cursor: pointer;
@@ -247,7 +247,7 @@ body::before {
 
 /* ===== DASHBOARD ===== */
 .dashboard-card {
-  border-radius: 18px;
+  border-radius: 2px;
   border: 1px solid rgba(140, 140, 140, 0.35);
   background: radial-gradient(circle at 0% -40%, #202020 0, #050505 60%);
   padding: 20px 18px;
@@ -362,7 +362,7 @@ body::before {
   flex: 0.8;
   max-width: 220px;
   min-width: 180px;
-  border-radius: 10px;
+  border-radius: 2px;
   background: radial-gradient(circle at 0% 0%, #151515 0, #020202 70%);
   border: 1px solid rgba(140, 140, 140, 0.6);
   box-shadow:
@@ -420,7 +420,7 @@ body::before {
   padding: 1rem;
   background: rgba(0, 255, 0, 0.05);
   border: 1px solid rgba(0, 255, 0, 0.2);
-  border-radius: 8px;
+  border-radius: 2px;
   margin-bottom: 1.5rem;
 }
 
@@ -454,7 +454,7 @@ body::before {
   text-align: center;
   background: rgba(255, 255, 255, 0.05);
   border: 1px dashed rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
+  border-radius: 2px;
   color: #c0c0c0;
 }
 
@@ -470,7 +470,7 @@ body::before {
 .queue-item {
   background: rgba(0, 0, 0, 0.5);
   border: 1px solid rgba(0, 255, 0, 0.3);
-  border-radius: 8px;
+  border-radius: 2px;
   padding: 1rem;
   transition: all 0.3s ease;
 }
@@ -545,7 +545,7 @@ body::before {
   padding: 1rem;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
+  border-radius: 2px;
   font-size: 0.85rem;
   color: #a0ffa0;
 }
@@ -575,7 +575,7 @@ body::before {
     width: 100%;
     padding: 0.5rem;
     background: rgba(0, 0, 0, 0.3);
-    border-radius: 4px;
+    border-radius: 2px;
   }
 }
 
@@ -594,7 +594,7 @@ body::before {
   padding: 1rem;
   background: rgba(255, 100, 0, 0.05);
   border: 1px solid rgba(255, 100, 0, 0.3);
-  border-radius: 8px;
+  border-radius: 2px;
   margin-bottom: 1.5rem;
 }
 
@@ -630,7 +630,7 @@ body::before {
   padding: 0.75rem 1rem;
   background: rgba(0, 0, 0, 0.5);
   border: 1px solid rgba(255, 100, 0, 0.3);
-  border-radius: 6px;
+  border-radius: 2px;
   color: #ffffff;
   font-size: 0.9rem;
   font-family: 'Courier New', monospace;
@@ -650,7 +650,7 @@ body::before {
 .blacklist-btn {
   padding: 0.75rem 1.5rem;
   border: none;
-  border-radius: 6px;
+  border-radius: 2px;
   font-family: 'Courier New', monospace;
   font-weight: 600;
   cursor: pointer;
@@ -694,7 +694,7 @@ body::before {
   text-align: center;
   background: rgba(255, 255, 255, 0.05);
   border: 1px dashed rgba(255, 100, 0, 0.2);
-  border-radius: 8px;
+  border-radius: 2px;
   color: #ffaa80;
 }
 
@@ -714,7 +714,7 @@ body::before {
   padding: 1rem;
   background: rgba(0, 0, 0, 0.5);
   border: 1px solid rgba(255, 100, 0, 0.3);
-  border-radius: 6px;
+  border-radius: 2px;
   transition: all 0.3s ease;
 }
 
@@ -736,7 +736,7 @@ body::before {
   margin-top: 1.5rem;
   background: rgba(255, 100, 0, 0.05);
   border: 1px solid rgba(255, 100, 0, 0.2);
-  border-radius: 8px;
+  border-radius: 2px;
   padding: 1rem;
 }
 
@@ -767,7 +767,7 @@ body::before {
 .blacklist-tx-item {
   padding: 0.75rem;
   background: rgba(0, 0, 0, 0.3);
-  border-radius: 4px;
+  border-radius: 2px;
   border: 1px solid rgba(255, 100, 0, 0.2);
 }
 
@@ -808,7 +808,7 @@ body::before {
     width: 100%;
     padding: 0.5rem;
     background: rgba(0, 0, 0, 0.3);
-    border-radius: 4px;
+    border-radius: 2px;
   }
 
   .blacklist-add {
@@ -853,7 +853,7 @@ body::before {
   color: #d4d4d4 !important;
   font-size: 12px !important;
   padding: 8px 12px !important;
-  border-radius: 4px !important;
+  border-radius: 2px;
   box-shadow: 0 0 10px rgba(192, 192, 192, 0.3) !important;
   transition: all 0.2s ease !important;
 }
@@ -876,7 +876,7 @@ body::before {
   color: #ff6600;
   font-size: 12px;
   padding: 8px 12px;
-  border-radius: 4px;
+  border-radius: 2px;
   box-shadow: 0 0 10px rgba(255, 102, 0, 0.3);
   cursor: pointer;
   transition: all 0.2s ease;
@@ -914,7 +914,7 @@ body::before {
 .send-modal {
   background: linear-gradient(145deg, #0a0a0a, #1a1a1a);
   border: 1px solid #333;
-  border-radius: 8px;
+  border-radius: 2px;
   padding: 2rem;
   width: 90%;
   max-width: 500px;
@@ -948,7 +948,7 @@ body::before {
   border: 1px solid #444;
   color: #fff;
   padding: 0.75rem;
-  border-radius: 4px;
+  border-radius: 2px;
   font-family: inherit;
   font-size: 0.95rem;
   transition: border-color 0.2s ease;
@@ -970,7 +970,7 @@ body::before {
   color: #ff4444;
   background: rgba(255, 0, 0, 0.1);
   padding: 0.75rem;
-  border-radius: 4px;
+  border-radius: 2px;
   margin-bottom: 1rem;
   border-left: 3px solid #ff4444;
 }
@@ -979,7 +979,7 @@ body::before {
   color: #44ff44;
   background: rgba(0, 255, 0, 0.1);
   padding: 0.75rem;
-  border-radius: 4px;
+  border-radius: 2px;
   margin-bottom: 1rem;
   border-left: 3px solid #44ff44;
 }
@@ -993,7 +993,7 @@ body::before {
 
 .modal-btn {
   padding: 0.75rem 1.5rem;
-  border-radius: 4px;
+  border-radius: 2px;
   cursor: pointer;
   font-size: 0.95rem;
   font-weight: 500;
@@ -1068,7 +1068,7 @@ body::before {
     0 0 12px rgba(192, 192, 192, 0.5);
   background: linear-gradient(90deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
   padding: 0.25rem 0.5rem;
-  border-radius: 3px;
+  border-radius: 2px;
   display: inline-block;
 }
 
@@ -1091,7 +1091,7 @@ body::before {
 .scroll-btn {
   background: #000;
   border: 1px solid #888;
-  border-radius: 4px;
+  border-radius: 2px;
   padding: 8px 12px;
   font-size: 0.85rem;
   font-weight: 600;
@@ -1122,7 +1122,7 @@ body::before {
   left: 20px;
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 6px;
+  border-radius: 2px;
   padding: 8px 12px;
   font-family: monospace;
   font-size: 0.85rem;
@@ -1169,7 +1169,7 @@ body::before {
 .collective-sentiment {
   background: rgba(0, 0, 0, 0.5);
   border: 1px solid rgba(192, 192, 192, 0.3);
-  border-radius: 8px;
+  border-radius: 2px;
   padding: 1.5rem;
   margin: 1.5rem 0;
 }
@@ -1188,7 +1188,7 @@ body::before {
   padding: 1rem;
   margin-bottom: 1rem;
   background: rgba(0, 0, 0, 0.3);
-  border-radius: 6px;
+  border-radius: 2px;
   text-transform: uppercase;
   letter-spacing: 1px;
 }
@@ -1216,7 +1216,7 @@ body::before {
 .bar-container {
   background: rgba(0, 0, 0, 0.5);
   border: 1px solid rgba(192, 192, 192, 0.2);
-  border-radius: 4px;
+  border-radius: 2px;
   height: 24px;
   overflow: hidden;
 }
@@ -1259,7 +1259,7 @@ body::before {
   padding: 1.5rem;
   background: rgba(0, 0, 0, 0.3);
   border: 1px solid rgba(192, 192, 192, 0.2);
-  border-radius: 6px;
+  border-radius: 2px;
   border-left: 3px solid #9966ff;
 }
 

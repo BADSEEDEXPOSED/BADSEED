@@ -901,7 +901,7 @@ function App() {
                 border: '1px solid #666',
                 color: '#fff',
                 padding: '10px',
-                borderRadius: '6px',
+                borderRadius: '2px',
                 cursor: 'pointer',
                 textTransform: 'none',
                 fontSize: '0.9rem',
