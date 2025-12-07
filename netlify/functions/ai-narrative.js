@@ -318,66 +318,66 @@ exports.handler = async (event) => {
 
             // Push ALL derived sentiments for this transaction
             sentiments.push(...txSentiments);
+        }
 
-
-            // Save all new logs to JSONBin
-            try {
-                await aiLogsStorage.set('logs', storedLogs);
-                console.log('[AI] Saved logs to JSONBin');
-            } catch (err) {
-                console.error('[AI] Failed to save logs:', err.message);
-            }
-
-            return {
-                statusCode: 200,
-                body: JSON.stringify({ logs, sentiments }),
-            };
+        // Save all new logs to JSONBin
+        try {
+            await aiLogsStorage.set('logs', storedLogs);
+            console.log('[AI] Saved logs to JSONBin');
         } catch (err) {
-            console.error("ai-narrative error:", err);
-            return {
-                statusCode: 500,
-                body: JSON.stringify({ error: "Internal Server Error" }),
-            };
-        }
-    };
-
-    function buildPrompt(identity, context) {
-        const { memo, amount, hour, todayCount, totalCount, balanceSol, tx } = context;
-
-        const basePrompt = IDENTITY_PROMPTS[identity];
-
-        let moodModifier = '';
-        if (amount > 1) {
-            moodModifier = '\n- MOOD: Intrigued by significant offering';
-        } else if (amount < 0.01 && amount > 0) {
-            moodModifier = '\n- MOOD: Dismissive of trivial amount';
+            console.error('[AI] Failed to save logs:', err.message);
         }
 
-        let timeModifier = '';
-        if (hour >= 0 && hour < 6) {
-            timeModifier = '\n- TIME: Nocturnal hours, use darker tone';
-        }
+        return {
+            statusCode: 200,
+            body: JSON.stringify({ logs, sentiments }),
+        };
+    } catch (err) {
+        console.error("ai-narrative error:", err);
+        return {
+            statusCode: 500,
+            body: JSON.stringify({ error: "Internal Server Error" }),
+        };
+    }
+};
 
-        const contextInfo = `\n\nCONTEXT:
+function buildPrompt(identity, context) {
+    const { memo, amount, hour, todayCount, totalCount, balanceSol, tx } = context;
+
+    const basePrompt = IDENTITY_PROMPTS[identity];
+
+    let moodModifier = '';
+    if (amount > 1) {
+        moodModifier = '\n- MOOD: Intrigued by significant offering';
+    } else if (amount < 0.01 && amount > 0) {
+        moodModifier = '\n- MOOD: Dismissive of trivial amount';
+    }
+
+    let timeModifier = '';
+    if (hour >= 0 && hour < 6) {
+        timeModifier = '\n- TIME: Nocturnal hours, use darker tone';
+    }
+
+    const contextInfo = `\n\nCONTEXT:
 - This is transmission #${totalCount} overall
 - Transaction amount: ${amount} SOL
 - Current hour: ${hour} (0-23)${moodModifier}${timeModifier}
 - Wallet balance: ${balanceSol ? balanceSol.toFixed(4) : 'unknown'} SOL`;
 
-        let memoInstructions = '';
-        if (memo) {
-            memoInstructions = `\n\nCRITICAL: The user sent this memo: "${memo}"
+    let memoInstructions = '';
+    if (memo) {
+        memoInstructions = `\n\nCRITICAL: The user sent this memo: "${memo}"
 You MUST directly respond to this message. Quote it or reference it. Be personal and specific to what they said.
 Keep your response under 120 characters to fit tweet format.`;
-        } else {
-            memoInstructions = `\n\nNo memo on this transaction. Respond to the ${tx.direction || 'unknown'} transaction of ${amount} ${tx.token || 'SOL'}.
+    } else {
+        memoInstructions = `\n\nNo memo on this transaction. Respond to the ${tx.direction || 'unknown'} transaction of ${amount} ${tx.token || 'SOL'}.
 Keep response brief and cryptic.`;
-        }
+    }
 
-        return `${basePrompt}${contextInfo}${memoInstructions}
+    return `${basePrompt}${contextInfo}${memoInstructions}
 
 Transaction details:
 ${JSON.stringify(tx, null, 2)}
 
 Respond with SENTIMENT and RESPONSE.`;
-    }
+}
