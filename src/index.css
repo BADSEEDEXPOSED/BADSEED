@@ -1294,3 +1294,22 @@ body::before {
   margin-top: 1rem;
   font-style: italic;
 }
+
+/* Archive Link - Always Silver */
+.archive-link {
+  color: #c0c0c0 !important;
+  text-decoration: none;
+  font-family: 'Courier New', monospace;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.archive-link:visited {
+  color: #c0c0c0 !important;
+}
+
+.archive-link:hover {
+  color: #ffffff !important;
+  text-decoration: underline;
+  text-shadow: 0 0 8px rgba(192, 192, 192, 0.6);
+}

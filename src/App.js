@@ -757,6 +757,30 @@ function App() {
   // ===========================
   // Generator function removed
 
+  // Archive Data State
+  const [archiveData, setArchiveData] = useState({ pending: [], history: [], chaosMode: false });
+
+  // Fetch Archive Data
+  useEffect(() => {
+    async function fetchArchive() {
+      try {
+        const res = await fetch('/.netlify/functions/archive-get');
+        if (res.ok) {
+          const data = await res.json();
+          setArchiveData(data);
+        }
+      } catch (err) {
+        console.error("Archive fetch failed:", err);
+      }
+    }
+    if (showDashboard) {
+      fetchArchive();
+      // Poll every minute
+      const interval = setInterval(fetchArchive, 60000);
+      return () => clearInterval(interval);
+    }
+  }, [showDashboard]);
+
   return (
     <div id="app">
       {/* Wallet Controls - Fixed top right corner of page */}
@@ -799,597 +823,645 @@ function App() {
           "screen" + (!showDashboard ? " screen--active screen--fade-in" : "")
         }
       >
-        {/* DEV-ONLY GENERATOR PANEL */}
-        {/* Generator UI removed */}
-
-        <h1 className="title">Seed Phrase</h1>
-        <p className="subtitle">
-          This is the public seed phrase for the BAD SEED experiment.
-          <br />
-          Anyone who knows it can access the same wallet.
-        </p>
-
-        <div id="seed-phrase" className="seed-phrase-container">
-          {seedWords.length === 0 ? (
-            <div className="seed-word" data-index="1">
-              (configure ENCODED_SEED_PHRASE in App.js)
-            </div>
-          ) : (
-            seedWords.map((word, idx) => (
-              <div
-                key={`${word}-${idx}`}
-                className="seed-word"
-                data-index={idx + 1}
-              >
+        <div className="content-wrapper seed-content">
+          {/* Add Archive Status Widget to Seed Screen (optional, or keep in dashboard) */}
+          {/* Moving to Dashboard only for cleaner look */}
+          {/* Seed Phrase Grid (Restored) */}
+          <div className="seed-phrase-container">
+            {seedWords.map((word, index) => (
+              <div key={index} className="seed-word" data-index={index + 1}>
                 {word}
               </div>
-            ))
-          )}
-        </div>
+            ))}
+          </div>
 
-        <button
-          id="copy-btn"
-          className="btn btn-primary"
-          onClick={handleCopyAndEnter}
-        >
-          Copy Seed Phrase &amp; Enter
-        </button>
+          {/* Explicit Copy & Enter Button */}
+          <button className="btn btn-primary" onClick={handleCopyAndEnter} style={{ marginBottom: '2rem', zIndex: 10 }}>
+            COPY SEED & ENTER
+          </button>
+
+          <div className="seed-container">
+            <div
+              className={`seed-organism ${logoPulseEnhanced ? 'seed--pulse-enhanced' : ''}`}
+              onClick={handleCopyAndEnter}
+              title="Click to Enter Dashboard"
+            >
+              <div className="core"></div>
+              <div className="membrane"></div>
+            </div>
+          </div>
+        </div>
       </main>
 
       {/* DASHBOARD SCREEN */}
       <main
         id="dashboard-screen"
-        className={
-          "screen" + (showDashboard ? " screen--active screen--fade-in" : "")
-        }
+        className={"screen" + (showDashboard ? " screen--active screen--fade-in" : "")}
       >
-        <section className="dashboard-card dashboard-card--glow">
-          <h2 className="section-title">Wallet Overview</h2>
+        <div className="content-wrapper dashboard-content">
+          {/* Header Stats */}
+          {/* 1. Wallet Overview (Restored per user request) */}
+          <div className="dashboard-card dashboard-card--glow">
+            <h2 className="section-title">WALLET OVERVIEW</h2>
 
-          <div className="wallet-row">
-            <span className="label">Address</span>
-            <span className="mono">
-              {BAD_SEED_WALLET_ADDRESS || "Not set yet"}
-            </span>
-          </div>
-
-          <div className="wallet-row">
-            <span className="label">Network</span>
-            <span className="mono">Solana mainnet-beta</span>
-          </div>
-
-          <div className="wallet-row">
-            <span className="label">Balance</span>
-            <span className="mono">{balanceText}</span>
-          </div>
-
-          <button
-            onClick={() => {
-              loadWalletData();
-              triggerLogoPulse();
-            }}
-            style={{
-              marginTop: "1rem",
-              width: "100%",
-              padding: "0.75rem 1.5rem",
-              fontSize: "1rem",
-              fontWeight: "600",
-              backgroundColor: "#000",
-              color: "#c0c0c0",
-              border: "1px solid #c0c0c0",
-              borderRadius: "8px",
-              cursor: "pointer",
-              transition: "all 0.3s ease"
-            }}
-            onMouseEnter={(e) => {
-              e.target.style.backgroundColor = "#1a1a1a";
-              e.target.style.color = "#fff";
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.backgroundColor = "#000";
-              e.target.style.color = "#c0c0c0";
-            }}
-          >
-            Refresh Data
-          </button>
-        </section>
-
-        {/* Collective Sentiment Section */}
-        {sentimentData && (
-          <section className="dashboard-card dashboard-card--glow collective-sentiment">
-            <h2 className="section-title">🌍 Collective Sentiment</h2>
-            <p className="sentiment-subtitle">
-              {sentimentData.totalMemos} transmissions analyzed
-            </p>
-
-            {/* Calculate percentages */}
-            {(() => {
-              const total = Object.values(sentimentData.sentiments).reduce((a, b) => a + b, 0);
-              if (total === 0) return <p>Awaiting first transmission...</p>;
-
-              const percentages = {
-                hope: Math.round((sentimentData.sentiments.hope / total) * 100),
-                greed: Math.round((sentimentData.sentiments.greed / total) * 100),
-                fear: Math.round((sentimentData.sentiments.fear / total) * 100),
-                mystery: Math.round((sentimentData.sentiments.mystery / total) * 100)
-              };
-
-              // Determine dominant mood
-              const dominant = Object.keys(sentimentData.sentiments).reduce((a, b) =>
-                sentimentData.sentiments[a] > sentimentData.sentiments[b] ? a : b
-              );
-
-              const moods = {
-                hope: { emoji: '🌱', text: 'The seed is hopeful', color: '#00ff00' },
-                greed: { emoji: '💰', text: 'The seed hungers', color: '#ffd700' },
-                fear: { emoji: '🌑', text: 'The seed is uneasy', color: '#ff4444' },
-                mystery: { emoji: '🔮', text: 'The seed is cryptic', color: '#9966ff' }
-              };
-
-              const currentMood = moods[dominant];
-
-              return (
-                <>
-                  <div className="seed-mood" style={{ color: currentMood.color }}>
-                    {currentMood.emoji} {currentMood.text}
-                  </div>
-
-                  <div className="sentiment-bars">
-                    <div className="sentiment-bar">
-                      <span className="sentiment-label">🌱 Hope</span>
-                      <div className="bar-container">
-                        <div className="bar-fill hope" style={{ width: `${percentages.hope}%` }} />
-                      </div>
-                      <span className="sentiment-value">{percentages.hope}%</span>
-                    </div>
-
-                    <div className="sentiment-bar">
-                      <span className="sentiment-label">💰 Greed</span>
-                      <div className="bar-container">
-                        <div className="bar-fill greed" style={{ width: `${percentages.greed}%` }} />
-                      </div>
-                      <span className="sentiment-value">{percentages.greed}%</span>
-                    </div>
-
-                    <div className="sentiment-bar">
-                      <span className="sentiment-label">😨 Fear</span>
-                      <div className="bar-container">
-                        <div className="bar-fill fear" style={{ width: `${percentages.fear}%` }} />
-                      </div>
-                      <span className="sentiment-value">{percentages.fear}%</span>
-                    </div>
-
-                    <div className="sentiment-bar">
-                      <span className="sentiment-label">🔮 Mystery</span>
-                      <div className="bar-container">
-                        <div className="bar-fill mystery" style={{ width: `${percentages.mystery}%` }} />
-                      </div>
-                      <span className="sentiment-value">{percentages.mystery}%</span>
-                    </div>
-                  </div>
-
-                  {/* Daily Prophecy */}
-                  {prophecy && (
-                    <div className="daily-prophecy">
-                      <h4 className="prophecy-heading">🔮 Today's Prophecy</h4>
-                      <p className={`prophecy-text ${(prophecy.ready || isLocalEnvironment()) ? '' : 'prophecy-blur'}`}>
-                        {prophecy.text || 'Awaiting the seed\'s vision...'}
-                      </p>
-                      {!prophecy.ready && !isLocalEnvironment() && (
-                        <p className="prophecy-hint">
-                          ✨ Will be revealed once posted to X.com
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </>
-              );
-            })()}
-          </section>
-        )}
-
-        <section className="dashboard-card dashboard-card--glow">
-          <h2 className="section-title">Recent Transactions</h2>
-          <ul id="tx-list" className="tx-list">
-            {txItems.length === 0 ? (
-              <li className="tx-item">
-                No recent transactions found for this address.
-              </li>
-            ) : (
-              txItems.map((tx, i) => {
-                const timeText = tx.blockTime
-                  ? new Date(tx.blockTime * 1000).toLocaleString()
-                  : "time unknown";
-
-                const aiLog =
-                  aiLogs && typeof aiLogs[i] === "string"
-                    ? aiLogs[i]
-                    : "[AI_LOG] awaiting interpretation…";
-
-                // Direction colors
-                const dirColor = tx.direction === "IN" ? "#a0ffa0" : "#d4a5a5";
-                const dirArrow = tx.direction === "IN" ? "↓ IN" : "↑ OUT";
-
-                return (
-                  <li key={tx.signature || `tx-${i}`} className="tx-item tx-row">
-                    {/* Left: existing tx details */}
-                    <div className="tx-main">
-                      {/* Signature */}
-                      <div style={{ marginBottom: "0.25rem" }}>
-                        <strong>Signature:</strong>{" "}
-                        <a
-                          href={`https://solscan.io/tx/${tx.signature}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{ color: "#c0c0c0", textDecoration: "none" }}
-                        >
-                          {tx.signature ? `${tx.signature.slice(0, 20)}...${tx.signature.slice(-20)}` : "(no signature)"}
-                        </a>
-                      </div>
-
-                      {/* Amount & Direction (New) */}
-                      {tx.amount && (
-                        <div style={{ marginBottom: "0.25rem", color: dirColor, fontWeight: "bold" }}>
-                          {dirArrow} {tx.amount} {tx.token}
-                        </div>
-                      )}
-
-                      {/* Status, Slot, Time on one line */}
-                      <div style={{ marginBottom: "0.25rem", fontSize: "0.9rem" }}>
-                        <strong>Status:</strong> {tx.confirmationStatus || "unknown"} • {" "}
-                        <strong>Slot:</strong>{" "}
-                        <a
-                          href={`https://solscan.io/block/${tx.slot}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{ color: "#c0c0c0", textDecoration: "none" }}
-                        >
-                          {tx.slot ?? "?"}
-                        </a> • {" "}
-                        <strong>Time:</strong> {timeText}
-                      </div>
-
-                      {/* Error if any */}
-                      {tx.err && (
-                        <div style={{ marginBottom: "0.25rem", color: "#d4a5a5" }}>
-                          <strong>Error:</strong> {JSON.stringify(tx.err)}
-                        </div>
-                      )}
-
-                      {/* Memo if any */}
-                      {tx.memo && (
-                        <div style={{ marginBottom: "0.25rem" }}>
-                          <span className="tx-memo-label">Memo:</span>
-                          <span className="tx-memo-text">{tx.memo}</span>
-                        </div>
-                      )}
-
-                      {/* Account */}
-                      <div style={{ fontSize: "0.9rem" }}>
-                        <strong>Account:</strong>{" "}
-                        <a
-                          href={`https://solscan.io/account/${BAD_SEED_WALLET_ADDRESS}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{ color: "#c0c0c0", textDecoration: "none" }}
-                        >
-                          {BAD_SEED_WALLET_ADDRESS.slice(0, 20)}...
-                        </a>
-                      </div>
-                    </div>
-
-
-                    {/* Right: AI terminal toast */}
-                    <div className="tx-ai-log">
-                      <div className="tx-ai-header">[BADSEED AI LOG]</div>
-                      <div className="tx-ai-body">{aiLog}</div>
-                    </div>
-                  </li>
-                );
-              })
-            )}
-          </ul>
-        </section>
-
-        {/* X.com Post Queue section */}
-        <section id="queue-section" className="dashboard-card dashboard-card--glow post-queue-section">
-          <h2 className="section-title">🌱 X.com Post Queue</h2>
-
-          <div className="queue-status">
-            <div className="queue-stat">
-              <span className="queue-stat-label">Posts Today:</span>
-              <span className="queue-stat-value">{dailyPostCount} / 2</span>
-            </div>
-            <div className="queue-stat">
-              <span className="queue-stat-label">Queued:</span>
-              <span className="queue-stat-value">{postQueue.length}</span>
-            </div>
-            <div className="queue-stat">
-              <span className="queue-stat-label">Next Post:</span>
-              <span className="queue-stat-value">
-                {nextPostTime ? new Date(nextPostTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' }) : 'N/A'}
+            <div className="wallet-row">
+              <span className="label">ADDRESS</span>
+              <span className="value mono">
+                {publicKey ? (
+                  <span className="tx-hash">
+                    {publicKey.toString().slice(0, 4) + "..." + publicKey.toString().slice(-4)}
+                  </span>
+                ) : (
+                  <span className="tx-hash">
+                    {BAD_SEED_WALLET_ADDRESS.slice(0, 4) + "..." + BAD_SEED_WALLET_ADDRESS.slice(-4)}
+                  </span>
+                )}
               </span>
             </div>
+
+            <div className="wallet-row">
+              <span className="label">NETWORK</span>
+              <span className="value mono">Solana mainnet-beta</span>
+            </div>
+
+            <div className="wallet-row">
+              <span className="label">BALANCE</span>
+              <span className="value mono glitch-text" data-text={balanceText}>
+                {balanceText}
+              </span>
+            </div>
+
+            <button
+              className="btn-refresh hover-effect"
+              onClick={loadWalletData}
+              style={{
+                width: '100%',
+                marginTop: '1.5rem',
+                background: 'transparent',
+                border: '1px solid #666',
+                color: '#fff',
+                padding: '10px',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                textTransform: 'none',
+                fontSize: '0.9rem',
+                fontWeight: '500'
+              }}
+              onMouseOver={(e) => e.currentTarget.style.borderColor = '#aaa'}
+              onMouseOut={(e) => e.currentTarget.style.borderColor = '#666'}
+            >
+              Refresh Data
+            </button>
           </div>
 
-          {/* Manual Queue Controls - Dev or Admin Only */}
-          {(process.env.NODE_ENV === 'development' || (publicKey && publicKey.toBase58() === BAD_SEED_WALLET_ADDRESS)) && (
-            <div style={{ display: 'flex', gap: '10px', marginBottom: '15px', justifyContent: 'center' }}>
-              <button
-                onClick={async () => {
-                  const result = await forcePostNow();
-                  if (result.success) {
-                    alert("Post sent successfully!");
-                  } else {
-                    alert("Post failed: " + result.reason);
-                  }
-                  updateQueueDisplay();
-                }}
-                className="blacklist-btn"
-                style={{ fontSize: '0.8rem', padding: '5px 10px' }}
-              >
-                ⚡ Force Post Now
-              </button>
-              <button
-                onClick={() => {
-                  addTestItem();
-                  updateQueueDisplay();
-                }}
-                className="blacklist-btn"
-                style={{ fontSize: '0.8rem', padding: '5px 10px' }}
-              >
-                🧪 Add Test Item
-              </button>
-              <button
-                onClick={async () => {
-                  if (window.confirm("Are you sure you want to clear the queue? This will remove all pending posts.")) {
-                    await clearQueue();
+          {/* 2. Archive Status (New separate section) */}
+          <div className={`dashboard-card ${archiveData.chaosMode ? 'chaos-border' : ''}`}>
+            <h2 className="section-title">ARCHIVE STATUS</h2>
+            <div className="wallet-row" style={{ borderBottom: 'none', paddingBottom: '4px' }}>
+              <span className="label">PERMANENCE</span>
+              {archiveData.chaosMode ? (
+                <span className="value status-chaos">
+                  🔴 MODE: CHAOS
+                  <span className="sub-value" style={{ display: 'block', fontSize: '0.8rem', marginTop: '4px', textAlign: 'right' }}>
+                    {archiveData.pending.length} DAY{archiveData.pending.length !== 1 ? 'S' : ''} PENDING
+                  </span>
+                </span>
+              ) : (
+                <span className="value status-synced">
+                  🟢 ARCHIVED
+                  {archiveData.history.length > 0 && (
+                    <a
+                      href={`https://arweave.net/${archiveData.history[0].txId}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="archive-link"
+                      style={{ display: 'block', fontSize: '0.75rem', marginTop: '4px', textAlign: 'right' }}
+                    >
+                      VIEW LAST UPLOAD
+                    </a>
+                  )}
+                </span>
+              )}
+            </div>
+            <p style={{
+              fontSize: '0.7rem',
+              color: '#888',
+              fontStyle: 'italic',
+              marginTop: '0',
+              lineHeight: '1.3',
+              borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+              paddingTop: '8px'
+            }}>
+              Daily transaction logs are permanently crystalized on Arweave.
+              If funds deplete ("Chaos Mode"), data auto-queues until the wallet is refilled.
+            </p>
+          </div>
+
+
+
+          {/* Collective Sentiment Section */}
+          {
+            sentimentData && (
+              <section className="dashboard-card dashboard-card--glow collective-sentiment">
+                <h2 className="section-title">🌍 Collective Sentiment</h2>
+                <p className="sentiment-subtitle">
+                  {sentimentData.totalMemos} transmissions analyzed
+                </p>
+
+                {/* Calculate percentages */}
+                {(() => {
+                  const total = Object.values(sentimentData.sentiments).reduce((a, b) => a + b, 0);
+                  if (total === 0) return <p>Awaiting first transmission...</p>;
+
+                  const percentages = {
+                    hope: Math.round((sentimentData.sentiments.hope / total) * 100),
+                    greed: Math.round((sentimentData.sentiments.greed / total) * 100),
+                    fear: Math.round((sentimentData.sentiments.fear / total) * 100),
+                    mystery: Math.round((sentimentData.sentiments.mystery / total) * 100)
+                  };
+
+                  // Determine dominant mood
+                  const dominant = Object.keys(sentimentData.sentiments).reduce((a, b) =>
+                    sentimentData.sentiments[a] > sentimentData.sentiments[b] ? a : b
+                  );
+
+                  const moods = {
+                    hope: { emoji: '🌱', text: 'The seed is hopeful', color: '#00ff00' },
+                    greed: { emoji: '💰', text: 'The seed hungers', color: '#ffd700' },
+                    fear: { emoji: '🌑', text: 'The seed is uneasy', color: '#ff4444' },
+                    mystery: { emoji: '🔮', text: 'The seed is cryptic', color: '#9966ff' }
+                  };
+
+                  const currentMood = moods[dominant];
+
+                  return (
+                    <>
+                      <div className="seed-mood" style={{ color: currentMood.color }}>
+                        {currentMood.emoji} {currentMood.text}
+                      </div>
+
+                      <div className="sentiment-bars">
+                        <div className="sentiment-bar">
+                          <span className="sentiment-label">🌱 Hope</span>
+                          <div className="bar-container">
+                            <div className="bar-fill hope" style={{ width: `${percentages.hope}%` }} />
+                          </div>
+                          <span className="sentiment-value">{percentages.hope}%</span>
+                        </div>
+
+                        <div className="sentiment-bar">
+                          <span className="sentiment-label">💰 Greed</span>
+                          <div className="bar-container">
+                            <div className="bar-fill greed" style={{ width: `${percentages.greed}%` }} />
+                          </div>
+                          <span className="sentiment-value">{percentages.greed}%</span>
+                        </div>
+
+                        <div className="sentiment-bar">
+                          <span className="sentiment-label">😨 Fear</span>
+                          <div className="bar-container">
+                            <div className="bar-fill fear" style={{ width: `${percentages.fear}%` }} />
+                          </div>
+                          <span className="sentiment-value">{percentages.fear}%</span>
+                        </div>
+
+                        <div className="sentiment-bar">
+                          <span className="sentiment-label">🔮 Mystery</span>
+                          <div className="bar-container">
+                            <div className="bar-fill mystery" style={{ width: `${percentages.mystery}%` }} />
+                          </div>
+                          <span className="sentiment-value">{percentages.mystery}%</span>
+                        </div>
+                      </div>
+
+                      {/* Daily Prophecy */}
+                      {prophecy && (
+                        <div className="daily-prophecy">
+                          <h4 className="prophecy-heading">🔮 Today's Prophecy</h4>
+                          <p className={`prophecy-text ${(prophecy.ready || isLocalEnvironment()) ? '' : 'prophecy-blur'}`}>
+                            {prophecy.text || 'Awaiting the seed\'s vision...'}
+                          </p>
+                          {!prophecy.ready && !isLocalEnvironment() && (
+                            <p className="prophecy-hint">
+                              ✨ Will be revealed once posted to X.com
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+              </section>
+            )
+          }
+
+          <section className="dashboard-card dashboard-card--glow">
+            <h2 className="section-title">Recent Transactions</h2>
+            <ul id="tx-list" className="tx-list">
+              {txItems.length === 0 ? (
+                <li className="tx-item">
+                  No recent transactions found for this address.
+                </li>
+              ) : (
+                txItems.map((tx, i) => {
+                  const timeText = tx.blockTime
+                    ? new Date(tx.blockTime * 1000).toLocaleString()
+                    : "time unknown";
+
+                  const aiLog =
+                    aiLogs && typeof aiLogs[i] === "string"
+                      ? aiLogs[i]
+                      : "[AI_LOG] awaiting interpretation…";
+
+                  // Direction colors
+                  const dirColor = tx.direction === "IN" ? "#a0ffa0" : "#d4a5a5";
+                  const dirArrow = tx.direction === "IN" ? "↓ IN" : "↑ OUT";
+
+                  return (
+                    <li key={tx.signature || `tx-${i}`} className="tx-item tx-row">
+                      {/* Left: existing tx details */}
+                      <div className="tx-main">
+                        {/* Signature */}
+                        <div style={{ marginBottom: "0.25rem" }}>
+                          <strong>Signature:</strong>{" "}
+                          <a
+                            href={`https://solscan.io/tx/${tx.signature}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ color: "#c0c0c0", textDecoration: "none" }}
+                          >
+                            {tx.signature ? `${tx.signature.slice(0, 20)}...${tx.signature.slice(-20)}` : "(no signature)"}
+                          </a>
+                        </div>
+
+                        {/* Amount & Direction (New) */}
+                        {tx.amount && (
+                          <div style={{ marginBottom: "0.25rem", color: dirColor, fontWeight: "bold" }}>
+                            {dirArrow} {tx.amount} {tx.token}
+                          </div>
+                        )}
+
+                        {/* Status, Slot, Time on one line */}
+                        <div style={{ marginBottom: "0.25rem", fontSize: "0.9rem" }}>
+                          <strong>Status:</strong> {tx.confirmationStatus || "unknown"} • {" "}
+                          <strong>Slot:</strong>{" "}
+                          <a
+                            href={`https://solscan.io/block/${tx.slot}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ color: "#c0c0c0", textDecoration: "none" }}
+                          >
+                            {tx.slot ?? "?"}
+                          </a> • {" "}
+                          <strong>Time:</strong> {timeText}
+                        </div>
+
+                        {/* Error if any */}
+                        {tx.err && (
+                          <div style={{ marginBottom: "0.25rem", color: "#d4a5a5" }}>
+                            <strong>Error:</strong> {JSON.stringify(tx.err)}
+                          </div>
+                        )}
+
+                        {/* Memo if any */}
+                        {tx.memo && (
+                          <div style={{ marginBottom: "0.25rem" }}>
+                            <span className="tx-memo-label">Memo:</span>
+                            <span className="tx-memo-text">{tx.memo}</span>
+                          </div>
+                        )}
+
+                        {/* Account */}
+                        <div style={{ fontSize: "0.9rem" }}>
+                          <strong>Account:</strong>{" "}
+                          <a
+                            href={`https://solscan.io/account/${BAD_SEED_WALLET_ADDRESS}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ color: "#c0c0c0", textDecoration: "none" }}
+                          >
+                            {BAD_SEED_WALLET_ADDRESS.slice(0, 20)}...
+                          </a>
+                        </div>
+                      </div>
+
+
+                      {/* Right: AI terminal toast */}
+                      <div className="tx-ai-log">
+                        <div className="tx-ai-header">[BADSEED AI LOG]</div>
+                        <div className="tx-ai-body">{aiLog}</div>
+                      </div>
+                    </li>
+                  );
+                })
+              )}
+            </ul>
+          </section>
+
+          {/* X.com Post Queue section */}
+          <section id="queue-section" className="dashboard-card dashboard-card--glow post-queue-section">
+            <h2 className="section-title">🌱 X.com Post Queue</h2>
+
+            <div className="queue-status">
+              <div className="queue-stat">
+                <span className="queue-stat-label">Posts Today:</span>
+                <span className="queue-stat-value">{dailyPostCount} / 2</span>
+              </div>
+              <div className="queue-stat">
+                <span className="queue-stat-label">Queued:</span>
+                <span className="queue-stat-value">{postQueue.length}</span>
+              </div>
+              <div className="queue-stat">
+                <span className="queue-stat-label">Next Post:</span>
+                <span className="queue-stat-value">
+                  {nextPostTime ? new Date(nextPostTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' }) : 'N/A'}
+                </span>
+              </div>
+            </div>
+
+            {/* Manual Queue Controls - Dev or Admin Only */}
+            {(process.env.NODE_ENV === 'development' || (publicKey && publicKey.toBase58() === BAD_SEED_WALLET_ADDRESS)) && (
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '15px', justifyContent: 'center' }}>
+                <button
+                  onClick={async () => {
+                    const result = await forcePostNow();
+                    if (result.success) {
+                      alert("Post sent successfully!");
+                    } else {
+                      alert("Post failed: " + result.reason);
+                    }
                     updateQueueDisplay();
-                  }
-                }}
-                className="blacklist-btn"
-                style={{ fontSize: '0.8rem', padding: '5px 10px', backgroundColor: '#ff4444' }}
-              >
-                🗑️ Clear Queue
-              </button>
-            </div>
-          )}
-
-          <div className="queue-items">
-            {postQueue.length === 0 ? (
-              <div className="queue-empty">
-                <p>No posts queued. Memos will automatically queue when new transactions with memos are detected.</p>
+                  }}
+                  className="blacklist-btn"
+                  style={{ fontSize: '0.8rem', padding: '5px 10px' }}
+                >
+                  ⚡ Force Post Now
+                </button>
+                <button
+                  onClick={() => {
+                    addTestItem();
+                    updateQueueDisplay();
+                  }}
+                  className="blacklist-btn"
+                  style={{ fontSize: '0.8rem', padding: '5px 10px' }}
+                >
+                  🧪 Add Test Item
+                </button>
+                <button
+                  onClick={async () => {
+                    if (window.confirm("Are you sure you want to clear the queue? This will remove all pending posts.")) {
+                      await clearQueue();
+                      updateQueueDisplay();
+                    }
+                  }}
+                  className="blacklist-btn"
+                  style={{ fontSize: '0.8rem', padding: '5px 10px', backgroundColor: '#ff4444' }}
+                >
+                  🗑️ Clear Queue
+                </button>
               </div>
-            ) : (
-              <ul className="queue-list">
-                {postQueue.map((item, idx) => (
-                  <li key={idx} className="queue-item">
-                    <div className="queue-item-header">
-                      <span className="queue-item-number">#{idx + 1}</span>
-                      <span className="queue-item-time">
-                        {item.createdAt ? new Date(item.createdAt).toLocaleString() : 'N/A'}
-                      </span>
-                    </div>
-                    <div className="queue-item-content">
-                      <div className="queue-memo">
-                        <span className="queue-label">📨 Memo:</span>
-                        <span className="queue-text">"{item.memo}"</span>
-                      </div>
-                      <div className="queue-ai">
-                        <span className="queue-label">→ AI:</span>
-                        <span className="queue-text">{item.aiLog}</span>
-                      </div>
-                    </div>
-                  </li>
-                ))}
-              </ul>
             )}
-          </div>
 
-          <div className="queue-info">
-            <p>🕒 Posts are sent twice daily (UTC midnight & noon). Limit: 2 posts/day.</p>
-            <p>🔄 Duplicate memos are automatically filtered.</p>
-          </div>
-        </section>
-
-        {/* Blacklist section */}
-        <section className="dashboard-card dashboard-card--glow blacklist-section">
-          <h2 className="section-title">🚫 Blacklisted Addresses</h2>
-
-          <div className="blacklist-stats">
-            <div className="blacklist-stat">
-              <span className="blacklist-stat-label">Blacklisted Addresses:</span>
-              <span className="blacklist-stat-value">{blacklist.length}</span>
+            <div className="queue-items">
+              {postQueue.length === 0 ? (
+                <div className="queue-empty">
+                  <p>No posts queued. Memos will automatically queue when new transactions with memos are detected.</p>
+                </div>
+              ) : (
+                <ul className="queue-list">
+                  {postQueue.map((item, idx) => (
+                    <li key={idx} className="queue-item">
+                      <div className="queue-item-header">
+                        <span className="queue-item-number">#{idx + 1}</span>
+                        <span className="queue-item-time">
+                          {item.createdAt ? new Date(item.createdAt).toLocaleString() : 'N/A'}
+                        </span>
+                      </div>
+                      <div className="queue-item-content">
+                        <div className="queue-memo">
+                          <span className="queue-label">📨 Memo:</span>
+                          <span className="queue-text">"{item.memo}"</span>
+                        </div>
+                        <div className="queue-ai">
+                          <span className="queue-label">→ AI:</span>
+                          <span className="queue-text">{item.aiLog}</span>
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
-            <div className="blacklist-stat">
-              <span className="blacklist-stat-label">Filtered Transactions:</span>
-              <span className="blacklist-stat-value">{blacklistedTxs.length}</span>
-            </div>
-          </div>
 
-          {/* Add address input - only show in local development */}
-          {isLocalEnvironment() && (
-            <div className="blacklist-add">
-              <input
-                type="text"
-                className="blacklist-input"
-                placeholder="Enter Solana address to blacklist..."
-                value={newBlacklistAddress}
-                onChange={(e) => setNewBlacklistAddress(e.target.value)}
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
-                    handleAddToBlacklist();
-                  }
-                }}
-              />
-              <button
-                className="blacklist-btn blacklist-btn-add"
-                onClick={handleAddToBlacklist}
-              >
-                Add Address
-              </button>
-              <button
-                className="blacklist-btn blacklist-btn-copy"
-                onClick={handleCopyBlacklist}
-                title="Copy blacklist array to clipboard for code update"
-              >
-                📋 Copy Blacklist for Code
-              </button>
+            <div className="queue-info">
+              <p>🕒 Posts are sent twice daily (UTC midnight & noon). Limit: 2 posts/day.</p>
+              <p>🔄 Duplicate memos are automatically filtered.</p>
             </div>
-          )}
+          </section>
 
-          <div className="blacklist-list">
-            {blacklist.length === 0 ? (
-              <div className="blacklist-empty">
-                <p>No addresses blacklisted. Add addresses above to filter unwanted transactions.</p>
+          {/* Blacklist section */}
+          <section className="dashboard-card dashboard-card--glow blacklist-section">
+            <h2 className="section-title">🚫 Blacklisted Addresses</h2>
+
+            <div className="blacklist-stats">
+              <div className="blacklist-stat">
+                <span className="blacklist-stat-label">Blacklisted Addresses:</span>
+                <span className="blacklist-stat-value">{blacklist.length}</span>
               </div>
-            ) : (
-              <ul className="blacklist-addresses">
-                {blacklist.map((address, idx) => (
-                  <li key={idx} className="blacklist-item">
-                    <span className="blacklist-address">{address}</span>
-                    {/* Remove button - only show in local development */}
-                    {isLocalEnvironment() && (
-                      <button
-                        className="blacklist-btn blacklist-btn-remove"
-                        onClick={() => handleRemoveFromBlacklist(address)}
-                      >
-                        Remove
-                      </button>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+              <div className="blacklist-stat">
+                <span className="blacklist-stat-label">Filtered Transactions:</span>
+                <span className="blacklist-stat-value">{blacklistedTxs.length}</span>
+              </div>
+            </div>
 
-          {blacklistedTxs.length > 0 && (
-            <details className="blacklist-transactions">
-              <summary className="blacklist-tx-summary">
-                View {blacklistedTxs.length} Filtered Transaction{blacklistedTxs.length !== 1 ? 's' : ''}
-              </summary>
-              <ul className="blacklist-tx-list">
-                {blacklistedTxs.map((tx, idx) => (
-                  <li key={idx} className="blacklist-tx-item">
-                    <div className="blacklist-tx-info">
-                      <span className="blacklist-tx-sig">
-                        <a
-                          href={`https://solscan.io/tx/${tx.signature}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
+            {/* Add address input - only show in local development */}
+            {isLocalEnvironment() && (
+              <div className="blacklist-add">
+                <input
+                  type="text"
+                  className="blacklist-input"
+                  placeholder="Enter Solana address to blacklist..."
+                  value={newBlacklistAddress}
+                  onChange={(e) => setNewBlacklistAddress(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      handleAddToBlacklist();
+                    }
+                  }}
+                />
+                <button
+                  className="blacklist-btn blacklist-btn-add"
+                  onClick={handleAddToBlacklist}
+                >
+                  Add Address
+                </button>
+                <button
+                  className="blacklist-btn blacklist-btn-copy"
+                  onClick={handleCopyBlacklist}
+                  title="Copy blacklist array to clipboard for code update"
+                >
+                  📋 Copy Blacklist for Code
+                </button>
+              </div>
+            )}
+
+            <div className="blacklist-list">
+              {blacklist.length === 0 ? (
+                <div className="blacklist-empty">
+                  <p>No addresses blacklisted. Add addresses above to filter unwanted transactions.</p>
+                </div>
+              ) : (
+                <ul className="blacklist-addresses">
+                  {blacklist.map((address, idx) => (
+                    <li key={idx} className="blacklist-item">
+                      <span className="blacklist-address">{address}</span>
+                      {/* Remove button - only show in local development */}
+                      {isLocalEnvironment() && (
+                        <button
+                          className="blacklist-btn blacklist-btn-remove"
+                          onClick={() => handleRemoveFromBlacklist(address)}
                         >
-                          {tx.signature.slice(0, 20)}...
-                        </a>
-                      </span>
-                      <span className="blacklist-tx-time">
-                        {tx.blockTime ? new Date(tx.blockTime * 1000).toLocaleString() : 'N/A'}
-                      </span>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </details>
-          )}
-        </section>
+                          Remove
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {blacklistedTxs.length > 0 && (
+              <details className="blacklist-transactions">
+                <summary className="blacklist-tx-summary">
+                  View {blacklistedTxs.length} Filtered Transaction{blacklistedTxs.length !== 1 ? 's' : ''}
+                </summary>
+                <ul className="blacklist-tx-list">
+                  {blacklistedTxs.map((tx, idx) => (
+                    <li key={idx} className="blacklist-tx-item">
+                      <div className="blacklist-tx-info">
+                        <span className="blacklist-tx-sig">
+                          <a
+                            href={`https://solscan.io/tx/${tx.signature}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            {tx.signature.slice(0, 20)}...
+                          </a>
+                        </span>
+                        <span className="blacklist-tx-time">
+                          {tx.blockTime ? new Date(tx.blockTime * 1000).toLocaleString() : 'N/A'}
+                        </span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
+          </section>
+        </div>
       </main>
       {/* Send Message Modal */}
-      {showSendModal && (
-        <div className="modal-overlay" onClick={(e) => {
-          // Only close if clicking on the overlay itself, not the modal content
-          if (e.target.className === 'modal-overlay') {
-            // Don't close - per requirements
-          }
-        }}>
-          <div className="send-modal" onClick={(e) => e.stopPropagation()}>
-            <h2>Send a Transmission to the Seed</h2>
+      {
+        showSendModal && (
+          <div className="modal-overlay" onClick={(e) => {
+            // Only close if clicking on the overlay itself, not the modal content
+            if (e.target.className === 'modal-overlay') {
+              // Don't close - per requirements
+            }
+          }}>
+            <div className="send-modal" onClick={(e) => e.stopPropagation()}>
+              <h2>Send a Transmission to the Seed</h2>
 
-            <div style={{ marginBottom: "1rem" }}>
-              <label>Message (Memo)</label>
-              <textarea
-                value={memoText}
-                onChange={(e) => setMemoText(e.target.value)}
-                placeholder="Type your message here..."
-                maxLength={100}
-              />
-              <div style={{ textAlign: "right", fontSize: "0.8rem", color: "#666" }}>
-                {memoText.length}/100
+              <div style={{ marginBottom: "1rem" }}>
+                <label>Message (Memo)</label>
+                <textarea
+                  value={memoText}
+                  onChange={(e) => setMemoText(e.target.value)}
+                  placeholder="Type your message here..."
+                  maxLength={100}
+                />
+                <div style={{ textAlign: "right", fontSize: "0.8rem", color: "#666" }}>
+                  {memoText.length}/100
+                </div>
               </div>
-            </div>
 
-            <div style={{ marginBottom: "1rem" }}>
-              <label>Amount (SOL)</label>
-              <input
-                type="number"
-                step="0.001"
-                min="0.001"
-                value={solAmount}
-                onChange={(e) => setSolAmount(e.target.value)}
-              />
-              <div style={{ fontSize: "0.8rem", color: "#666", marginTop: "0.2rem" }}>
-                Minimum: 0.001 SOL
+              <div style={{ marginBottom: "1rem" }}>
+                <label>Amount (SOL)</label>
+                <input
+                  type="number"
+                  step="0.001"
+                  min="0.001"
+                  value={solAmount}
+                  onChange={(e) => setSolAmount(e.target.value)}
+                />
+                <div style={{ fontSize: "0.8rem", color: "#666", marginTop: "0.2rem" }}>
+                  Minimum: 0.001 SOL
+                </div>
               </div>
-            </div>
 
-            {sendError && (
-              <div className="modal-error">
-                {sendError}
+              {sendError && (
+                <div className="modal-error">
+                  {sendError}
+                </div>
+              )}
+
+              {sendSuccess && (
+                <div className="modal-success">
+                  Transmission sent successfully!
+                </div>
+              )}
+
+              <div className="modal-buttons">
+                <button
+                  className="modal-btn modal-btn-cancel"
+                  onClick={() => setShowSendModal(false)}
+                  disabled={isSending}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="modal-btn modal-btn-send"
+                  onClick={handleSendTransaction}
+                  disabled={isSending}
+                >
+                  {isSending ? "Sending..." : "Send Transmission"}
+                </button>
               </div>
-            )}
 
-            {sendSuccess && (
-              <div className="modal-success">
-                Transmission sent successfully!
+              <div className="modal-info">
+                This will send SOL to the BAD SEED wallet with your message attached on-chain.
               </div>
-            )}
-
-            <div className="modal-buttons">
-              <button
-                className="modal-btn modal-btn-cancel"
-                onClick={() => setShowSendModal(false)}
-                disabled={isSending}
-              >
-                Cancel
-              </button>
-              <button
-                className="modal-btn modal-btn-send"
-                onClick={handleSendTransaction}
-                disabled={isSending}
-              >
-                {isSending ? "Sending..." : "Send Transmission"}
-              </button>
-            </div>
-
-            <div className="modal-info">
-              This will send SOL to the BAD SEED wallet with your message attached on-chain.
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* Floating Scroll Buttons */}
-      {showDashboard && (
-        <div className="scroll-buttons">
-          <button
-            className="scroll-btn"
-            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-            title="Scroll to Top"
-          >
-            ▲ Top
-          </button>
-          <button
-            className="scroll-btn"
-            onClick={() => {
-              const queueSection = document.getElementById('queue-section');
-              if (queueSection) queueSection.scrollIntoView({ behavior: 'smooth' });
-            }}
-            title="Scroll to Queue"
-          >
-            ▼ Queue
-          </button>
-        </div>
-      )}
+      {
+        showDashboard && (
+          <div className="scroll-buttons">
+            <button
+              className="scroll-btn"
+              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+              title="Scroll to Top"
+            >
+              ▲ Top
+            </button>
+            <button
+              className="scroll-btn"
+              onClick={() => {
+                const queueSection = document.getElementById('queue-section');
+                if (queueSection) queueSection.scrollIntoView({ behavior: 'smooth' });
+              }}
+              title="Scroll to Queue"
+            >
+              ▼ Queue
+            </button>
+          </div>
+        )
+      }
 
-    </div>
+    </div >
   );
 }
 
