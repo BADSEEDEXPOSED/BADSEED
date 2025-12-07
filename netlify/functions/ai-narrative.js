@@ -112,41 +112,42 @@ function checkEasterEgg(memo, identity) {
 }
 
 //Update sentiment data
+// Update sentiment data via Storage (Redis)
 async function updateSentiment(sentiment) {
     try {
-        // Read current data
-        let data = {
+        const storage = new Storage('sentiment-data');
+        let data = await storage.get('data') || {
             totalMemos: 0,
             sentiments: { hope: 0, greed: 0, fear: 0, mystery: 0 },
             lastUpdated: '',
             prophecy: { text: '', date: '' }
         };
 
-        try {
-            const fileData = fs.readFileSync(SENTIMENT_DATA_FILE, 'utf8');
-            data = JSON.parse(fileData);
-        } catch (err) {
-            console.log('No existing sentiment data file, creating new one');
-        }
-
         // Update sentiment
         data.sentiments[sentiment]++;
         data.totalMemos++;
         data.lastUpdated = new Date().toISOString();
 
-        // Write back to file
-        fs.writeFileSync(SENTIMENT_DATA_FILE, JSON.stringify(data, null, 2));
+        // Save back to Redis
+        await storage.set('data', data);
     } catch (error) {
         console.error('Error updating sentiment:', error);
     }
 }
 
-// Get sentiment data for context
+// Get sentiment data for context from Redis
 async function getSentimentData() {
     try {
-        const data = fs.readFileSync(SENTIMENT_DATA_FILE, 'utf8');
-        return JSON.parse(data);
+        const storage = new Storage('sentiment-data');
+        const data = await storage.get('data');
+        return data || {
+            totalMemos: 0,
+            sentiments: { hope: 0, greed: 0, fear: 0, mystery: 0 },
+            lastUpdated: '',
+            prophecy: { text: '', date: '' }
+        };
     } catch (error) {
+        console.error('Error reading sentiment data:', error);
         return {
             totalMemos: 0,
             sentiments: { hope: 0, greed: 0, fear: 0, mystery: 0 },
