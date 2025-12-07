@@ -728,8 +728,11 @@ function App() {
       setAiLogs(logs);
       // Forward any new memos to X.com after logs are stored
       await forwardMemosIfNeeded(displayed, logs);
-      // Update queue display
-      updateQueueDisplay();
+
+      // Refresh Queue & Sentiment (ensure UI is in sync)
+      await updateQueueDisplay();
+      await fetchSentiment();
+
 
     } catch (err) {
       console.error("Error loading Solana data:", err);
