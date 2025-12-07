@@ -35,6 +35,13 @@ exports.handler = async (event, context) => {
         // Mark as ready (unblurred)
         data.prophecy.ready = true;
         data.prophecy.revealedAt = new Date().toISOString();
+
+        // RESET MYSTERY SENTIMENT (The "Reset" Rule)
+        if (data.sentiments) {
+            data.sentiments.mystery = 0;
+            console.log('[Prophecy Reveal] Mystery sentiment reset to 0');
+        }
+
         await storage.set('data', data);
 
         console.log('[Prophecy Reveal] Prophecy unblurred');

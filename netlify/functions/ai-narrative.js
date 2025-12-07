@@ -280,67 +280,104 @@ exports.handler = async (event) => {
                 storedLogs[signature] = { log: response, sentiment, storedAt: new Date().toISOString() };
             }
             logs.push(response);
-            sentiments.push(sentiment);
-        }
 
-        // Save all new logs to JSONBin
-        try {
-            await aiLogsStorage.set('logs', storedLogs);
-            console.log('[AI] Saved logs to JSONBin');
+            // ----------------------------------------------------------------
+            // HEURISTIC SENTIMENT WEIGHTING
+            // User Rules:
+            // 1. Outgoing SOL -> Greed (some), Fear (little)
+            // 2. Incoming SOL -> Hope (some) based on memo
+            // 3. No Memo -> Mystery (little)
+            // 4. Mystery sentiment increases if memo is not hopeful/fearful/greedy
+            // ----------------------------------------------------------------
+
+            // Start with the AI's core sentiment
+            const txSentiments = [sentiment];
+
+            // 1. Outgoing Transaction (Spending SOL)
+            // "Greed some, Fear a little"
+            if (amount < 0 || tx.direction === 'out') {
+                txSentiments.push('greed', 'greed'); // +2 Greed
+                txSentiments.push('fear');           // +1 Fear
+            }
+
+            // 2. Incoming Transaction (Receiving SOL)
+            // "Hope some" (regardless of memo)
+            else if (amount > 0 || tx.direction === 'in') {
+                txSentiments.push('hope', 'hope');   // +2 Hope
+            }
+
+            // 3. Mystery Logic
+            if (!memo) {
+                // "Change a little if any transaction has no memo"
+                txSentiments.push('mystery');        // +1 Mystery
+            } else if (sentiment === 'mystery') {
+                // "Change some if the memo is not hopeful or fearful or greedy"
+                // AI already gave +1 Mystery, add another +1 for "some"
+                txSentiments.push('mystery');
+            }
+
+            // Push ALL derived sentiments for this transaction
+            sentiments.push(...txSentiments);
+
+
+            // Save all new logs to JSONBin
+            try {
+                await aiLogsStorage.set('logs', storedLogs);
+                console.log('[AI] Saved logs to JSONBin');
+            } catch (err) {
+                console.error('[AI] Failed to save logs:', err.message);
+            }
+
+            return {
+                statusCode: 200,
+                body: JSON.stringify({ logs, sentiments }),
+            };
         } catch (err) {
-            console.error('[AI] Failed to save logs:', err.message);
+            console.error("ai-narrative error:", err);
+            return {
+                statusCode: 500,
+                body: JSON.stringify({ error: "Internal Server Error" }),
+            };
+        }
+    };
+
+    function buildPrompt(identity, context) {
+        const { memo, amount, hour, todayCount, totalCount, balanceSol, tx } = context;
+
+        const basePrompt = IDENTITY_PROMPTS[identity];
+
+        let moodModifier = '';
+        if (amount > 1) {
+            moodModifier = '\n- MOOD: Intrigued by significant offering';
+        } else if (amount < 0.01 && amount > 0) {
+            moodModifier = '\n- MOOD: Dismissive of trivial amount';
         }
 
-        return {
-            statusCode: 200,
-            body: JSON.stringify({ logs, sentiments }),
-        };
-    } catch (err) {
-        console.error("ai-narrative error:", err);
-        return {
-            statusCode: 500,
-            body: JSON.stringify({ error: "Internal Server Error" }),
-        };
-    }
-};
+        let timeModifier = '';
+        if (hour >= 0 && hour < 6) {
+            timeModifier = '\n- TIME: Nocturnal hours, use darker tone';
+        }
 
-function buildPrompt(identity, context) {
-    const { memo, amount, hour, todayCount, totalCount, balanceSol, tx } = context;
-
-    const basePrompt = IDENTITY_PROMPTS[identity];
-
-    let moodModifier = '';
-    if (amount > 1) {
-        moodModifier = '\n- MOOD: Intrigued by significant offering';
-    } else if (amount < 0.01 && amount > 0) {
-        moodModifier = '\n- MOOD: Dismissive of trivial amount';
-    }
-
-    let timeModifier = '';
-    if (hour >= 0 && hour < 6) {
-        timeModifier = '\n- TIME: Nocturnal hours, use darker tone';
-    }
-
-    const contextInfo = `\n\nCONTEXT:
+        const contextInfo = `\n\nCONTEXT:
 - This is transmission #${totalCount} overall
 - Transaction amount: ${amount} SOL
 - Current hour: ${hour} (0-23)${moodModifier}${timeModifier}
 - Wallet balance: ${balanceSol ? balanceSol.toFixed(4) : 'unknown'} SOL`;
 
-    let memoInstructions = '';
-    if (memo) {
-        memoInstructions = `\n\nCRITICAL: The user sent this memo: "${memo}"
+        let memoInstructions = '';
+        if (memo) {
+            memoInstructions = `\n\nCRITICAL: The user sent this memo: "${memo}"
 You MUST directly respond to this message. Quote it or reference it. Be personal and specific to what they said.
 Keep your response under 120 characters to fit tweet format.`;
-    } else {
-        memoInstructions = `\n\nNo memo on this transaction. Respond to the ${tx.direction || 'unknown'} transaction of ${amount} ${tx.token || 'SOL'}.
+        } else {
+            memoInstructions = `\n\nNo memo on this transaction. Respond to the ${tx.direction || 'unknown'} transaction of ${amount} ${tx.token || 'SOL'}.
 Keep response brief and cryptic.`;
-    }
+        }
 
-    return `${basePrompt}${contextInfo}${memoInstructions}
+        return `${basePrompt}${contextInfo}${memoInstructions}
 
 Transaction details:
 ${JSON.stringify(tx, null, 2)}
 
 Respond with SENTIMENT and RESPONSE.`;
-}
+    }
