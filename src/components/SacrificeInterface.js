@@ -11,7 +11,7 @@ import {
 } from '@solana/spl-token';
 import './SacrificeInterface.css';
 
-// DEFAULT CONSTANTS
+// DEFAULT CONSTANTS (Fallbacks)
 const DEFAULT_DESTINATION = "CZ7Lv3QNVxbBivGPBhJG7m1HpCtfEDjEusBjjZ3qmVz5";
 const DEFAULT_TARGET_MINT = "3HPpMLK7LjKFqSnCsBYNiijhNTo7dkkx3FCSAHKSpump"; // BADSEED
 const SOL_MINT = "So11111111111111111111111111111111111111112";
@@ -34,16 +34,66 @@ export function SacrificeInterface({ onClose }) {
     const [userTokens, setUserTokens] = useState([]);
     const [isLoadingTokens, setIsLoadingTokens] = useState(false);
 
-    // Admin State
-    const [isAdminOpen, setIsAdminOpen] = useState(false);
+    // Global Config State (Synced)
     const [destinationWallet, setDestinationWallet] = useState(DEFAULT_DESTINATION);
     const [targetMint, setTargetMint] = useState(DEFAULT_TARGET_MINT);
     const [isSweepEnabled, setIsSweepEnabled] = useState(true);
+    const [isAdminOpen, setIsAdminOpen] = useState(false);
+    const [isSavingConfig, setIsSavingConfig] = useState(false);
 
     // Environment Check
     const isLocal = useMemo(() => {
         return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     }, []);
+
+    // 1. Fetch Global Config (Real-Time Sync)
+    useEffect(() => {
+        const fetchConfig = async () => {
+            try {
+                // If local, we might want to poll dev server functions? 
+                // Netlify functions run on localhost:8888 usually, or relative path /netlfiy/functions/
+                // For deployed app, it's /.netlify/functions/config-get
+                const endpoint = '/.netlify/functions/config-get';
+                const res = await fetch(endpoint);
+                if (res.ok) {
+                    const data = await res.json();
+                    setTargetMint(data.targetMint || DEFAULT_TARGET_MINT);
+                    setDestinationWallet(data.destinationWallet || DEFAULT_DESTINATION);
+                    setIsSweepEnabled(data.isSweepEnabled ?? true);
+                }
+            } catch (err) {
+                console.warn("Failed to sync global config, using defaults:", err);
+            }
+        };
+
+        fetchConfig();
+        const interval = setInterval(fetchConfig, 10000); // Poll every 10s for real-time updates
+        return () => clearInterval(interval);
+    }, []);
+
+    // 2. Admin Save Config (Real-Time Update)
+    const handleSaveConfig = async () => {
+        if (!isLocal) return;
+        setIsSavingConfig(true);
+        try {
+            const res = await fetch('/.netlify/functions/config-update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    targetMint,
+                    destinationWallet,
+                    isSweepEnabled
+                })
+            });
+            if (!res.ok) throw new Error("Failed to save config");
+            alert("Global Configuration Updated!");
+        } catch (err) {
+            console.error(err);
+            alert("Error saving config: " + err.message);
+        } finally {
+            setIsSavingConfig(false);
+        }
+    };
 
     // Fetch User Assets (SOL + SPL)
     useEffect(() => {
@@ -402,7 +452,6 @@ export function SacrificeInterface({ onClose }) {
                                         />
                                     </div>
                                 </div>
-                                <div className="sacrifice-checkbox-group">
                                     <input
                                         type="checkbox"
                                         checked={isSweepEnabled}
@@ -410,12 +459,20 @@ export function SacrificeInterface({ onClose }) {
                                     />
                                     <label>Enable Sweep</label>
                                 </div>
+                                
+                                <button 
+                                    onClick={handleSaveConfig} 
+                                    disabled={isSavingConfig}
+                                    className="mt-4 w-full bg-blue-600 text-white p-1 text-xs font-bold uppercase hover:bg-blue-500"
+                                >
+                                    {isSavingConfig ? 'Saving...' : '💾 Save to Global'}
+                                </button>
                             </div>
-                        )}
-                    </div>
                 )}
             </div>
+                )}
         </div>
+        </div >
     );
 }
 
