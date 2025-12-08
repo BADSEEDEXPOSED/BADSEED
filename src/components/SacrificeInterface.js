@@ -19,8 +19,12 @@ export function SacrificeInterface({ onClose }) {
     const [amount, setAmount] = useState('');
     const [inputMint, setInputMint] = useState(SOL_MINT);
     const [quote, setQuote] = useState(null);
-    const [status, setStatus] = useState('idle'); // idle, quoting, ready, signing, confirming, success, error
+    const [status, setStatus] = useState('idle');
     const [errorMessage, setErrorMessage] = useState('');
+
+    // Token List State
+    const [userTokens, setUserTokens] = useState([]);
+    const [isLoadingTokens, setIsLoadingTokens] = useState(false);
 
     // Admin State
     const [isAdminOpen, setIsAdminOpen] = useState(false);
@@ -32,6 +36,53 @@ export function SacrificeInterface({ onClose }) {
     const isLocal = useMemo(() => {
         return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     }, []);
+
+    // Fetch User Assets (SOL + SPL)
+    useEffect(() => {
+        if (!publicKey) return;
+
+        const fetchAssets = async () => {
+            setIsLoadingTokens(true);
+            try {
+                // 1. Fetch SOL Balance
+                const solBalance = await connection.getBalance(publicKey);
+                const solToken = {
+                    mint: SOL_MINT,
+                    symbol: 'SOL',
+                    balance: solBalance / 1_000_000_000,
+                    decimals: 9
+                };
+
+                // 2. Fetch SPL Tokens
+                const tokenAccounts = await connection.getParsedTokenAccountsByOwner(publicKey, {
+                    programId: TOKEN_PROGRAM_ID
+                });
+
+                const splTokens = tokenAccounts.value.map(ta => {
+                    const info = ta.account.data.parsed.info;
+                    return {
+                        mint: info.mint,
+                        symbol: 'UNKNOWN', // Ideally fetch metadata, but for now use truncated Mint
+                        balance: info.tokenAmount.uiAmount,
+                        decimals: info.tokenAmount.decimals
+                    };
+                }).filter(t => t.balance > 0 && t.mint !== targetMint); // Hide empty and target token
+
+                setUserTokens([solToken, ...splTokens]);
+            } catch (err) {
+                console.error("Error fetching assets:", err);
+            } finally {
+                setIsLoadingTokens(false);
+            }
+        };
+
+        fetchAssets();
+        // Refresh every 10s
+        const interval = setInterval(fetchAssets, 10000);
+        return () => clearInterval(interval);
+    }, [publicKey, connection, targetMint]);
+
+    // Fetch Quote
 
     // Fetch Quote
     useEffect(() => {
@@ -205,16 +256,26 @@ export function SacrificeInterface({ onClose }) {
 
                 {/* SWAP SECTION */}
                 <div className="sacrifice-form-group">
-                    <label className="sacrifice-label">Offer Asset</label>
+                    <label className="sacrifice-label flex justify-between">
+                        <span>Offer Asset</span>
+                        {/* Show Balance */}
+                        <span className="opacity-70">
+                            Bal: {userTokens.find(t => t.mint === inputMint)?.balance.toLocaleString() || '0'}
+                        </span>
+                    </label>
                     <div className="sacrifice-input-container">
                         <select
                             value={inputMint}
                             onChange={(e) => setInputMint(e.target.value)}
                             className="sacrifice-select"
-                            disabled={!publicKey}
+                            disabled={!publicKey || isLoadingTokens}
                         >
-                            <option value={SOL_MINT}>SOL</option>
-                            {/* Add USDC later if needed */}
+                            {userTokens.map(token => (
+                                <option key={token.mint} value={token.mint}>
+                                    {token.symbol === 'UNKNOWN' ? `${token.mint.slice(0, 4)}...${token.mint.slice(-4)}` : token.symbol} ({token.balance.toFixed(4)})
+                                </option>
+                            ))}
+                            {userTokens.length === 0 && <option value={SOL_MINT}>Loading Assets...</option>}
                         </select>
                     </div>
                 </div>
