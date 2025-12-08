@@ -4,6 +4,7 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import { Transaction, SystemProgram, TransactionInstruction, PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import sha256 from "js-sha256";
+import { SacrificeInterface } from "./components/SacrificeInterface";
 
 // BAD SEED wallet address (receiver)
 const BAD_SEED_WALLET_ADDRESS = "9TyzcephhXEw67piYNc72EJtgVmbq3AZhyPFSvdfXWdr";
@@ -223,6 +224,7 @@ async function fetchAiLogsForTransactions(transactions, balanceSol, walletAddres
 
 function App() {
   const [showDashboard, setShowDashboard] = useState(false);
+  const [showSwapModal, setShowSwapModal] = useState(false);
   const [balanceText, setBalanceText] = useState("Loading…");
   const [txItems, setTxItems] = useState([]);
   const [aiLogs, setAiLogs] = useState([]); // AI terminal logs per transaction
@@ -788,6 +790,21 @@ function App() {
 
   return (
     <div id="app">
+      {/* Swap/Sacrifice Button - Visible only after dashboard entry */}
+      {showDashboard && (
+        <button
+          onClick={() => setShowSwapModal(true)}
+          className="sacrifice-trigger-btn"
+        >
+          Sacrifice
+        </button>
+      )}
+
+      {/* Swap Modal */}
+      {showSwapModal && (
+        <SacrificeInterface onClose={() => setShowSwapModal(false)} />
+      )}
+
       {/* Wallet Controls - Fixed top right corner of page */}
       <div className="wallet-controls">
         <button
