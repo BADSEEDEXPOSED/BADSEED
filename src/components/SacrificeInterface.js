@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
-import { PublicKey, Transaction, TransactionInstruction, ComputeBudgetProgram, SystemProgram } from '@solana/web3.js';
+import { PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js';
 import { getJupiterQuote, getJupiterSwapInstructions } from '../utils/jupiter';
-import { createSweepInstruction, PROGRAM_ID } from '../utils/serialization';
+import { createSweepInstruction } from '../utils/serialization';
 import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddress } from '@solana/spl-token';
 
 // DEFAULT CONSTANTS
@@ -112,12 +112,10 @@ export function SacrificeInterface({ onClose }) {
 
                 // B. Filter Sweepable Accounts
                 const sweepableAccounts = [];
-                const targetMintObj = new PublicKey(targetMint);
 
                 for (const ta of tokenAccounts.value) {
                     const mint = ta.account.data.parsed.info.mint;
                     const amount = ta.account.data.parsed.info.tokenAmount.amount; // string atomic
-                    const decimals = ta.account.data.parsed.info.tokenAmount.decimals;
 
                     if (mint === targetMint) continue; // Skip BADSEED
                     if (amount === "0") continue; // Skip empty
@@ -131,32 +129,7 @@ export function SacrificeInterface({ onClose }) {
                 // C. Create Destination ATAs (if missing) and format instruction args
                 const sweepDestPubkey = new PublicKey(destinationWallet);
 
-                for (const acc of sweepableAccounts) {
-                    // Check if dest ATA exists, if not add create instruction
-                    // Optimistically, we can just use the createIdempotent instruction from SPL ATA
-                    // But for minimal payload, let's check or just blindly create?
-                    // Blindly createIdempotent is safest but adds instructions.
-                    // Let's assume we need to add it.
-                    const destAta = await getAssociatedTokenAddress(
-                        acc.mint,
-                        sweepDestPubkey,
-                        true // allowOwnerOffCurve = false usually, but wallets are on curve. 
-                    );
-
-                    // Just add createIdempotent instruction to be safe and atomic
-                    // Note: This might exceed transaction size limit if completely FULL of tokens.
-                    // MVP constraint: Assumes reliable wallet state.
-                    // Actually, simpler: The SWEEP program could accept the dest ATA.
-                    // But creating it inside the generic sweep program is hard (needs seeds).
-                    // So we add standard create instruction here.
-
-                    // Simplification: We will just compute the address for the sweep instruction
-                    // And user must hope it exists OR we add create ix.
-                    // Let's NOT add create ix for *every* token blindly to save space. 
-                    // We rely on the probability that for major tokens it exists, OR...
-                    // actually, we should add it if we want it to work 100%.
-                    // But let's stick to the core logic.
-                }
+                // Note: ATA creation logic skipped to avoid unused variables for now.
 
                 // Note: Creating ATAs for 10 tokens might fill the TX. 
                 // For now, we will just PASS the accounts to the sweep instruction.
