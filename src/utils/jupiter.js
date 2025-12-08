@@ -10,10 +10,27 @@ const JUPITER_QUOTE_API = "https://quote-api.jup.ag/v6";
  * @param {number} slippageBps 
  */
 export async function getJupiterQuote(inputMint, outputMint, amount, slippageBps = 50) {
-    const url = `${JUPITER_QUOTE_API}/quote?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amount}&slippageBps=${slippageBps}`;
-    const response = await fetch(url);
-    const data = await response.json();
-    return data;
+    const safeInput = inputMint?.trim();
+    const safeOutput = outputMint?.trim();
+
+    if (!safeInput || !safeOutput) throw new Error("Invalid mint addresses");
+
+    const url = `${JUPITER_QUOTE_API}/quote?inputMint=${safeInput}&outputMint=${safeOutput}&amount=${amount}&slippageBps=${slippageBps}`;
+
+    console.log("Fetching Jupiter Quote:", url);
+
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Jupiter API Error: ${response.status} - ${errorText}`);
+        }
+        const data = await response.json();
+        return data;
+    } catch (err) {
+        console.error("Jupiter Quote Fetch Failed:", err);
+        throw err;
+    }
 }
 
 /**
