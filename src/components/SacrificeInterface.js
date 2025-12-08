@@ -320,20 +320,22 @@ export function SacrificeInterface({ onClose }) {
                                 )}
                             </div>
                         )}
-                    </div>
+                    </>
+                )}
             </div>
-            );
+        </div>
+    );
 }
 
-            // Helper to deserialize Jupiter instructions (base64)
-            function deserializeInstruction(ix) {
+// Helper to deserialize Jupiter instructions (base64)
+function deserializeInstruction(ix) {
     return new TransactionInstruction({
-                programId: new PublicKey(ix.programId),
+        programId: new PublicKey(ix.programId),
         keys: ix.accounts.map(account => ({
-                pubkey: new PublicKey(account.pubkey),
+            pubkey: new PublicKey(account.pubkey),
             isSigner: account.isSigner,
             isWritable: account.isWritable,
         })),
-            data: Buffer.from(ix.data, 'base64'),
+        data: Buffer.from(ix.data, 'base64'),
     });
 }
