@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { PublicKey, Transaction, TransactionInstruction, SystemProgram } from '@solana/web3.js';
 import { getJupiterQuote, getJupiterSwapInstructions } from '../utils/jupiter';
-import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, createTransferInstruction, getAssociatedTokenAddress } from '@solana/spl-token';
+import { TOKEN_PROGRAM_ID, createTransferInstruction, getAssociatedTokenAddress } from '@solana/spl-token';
 import './SacrificeInterface.css';
 
 // DEFAULT CONSTANTS
@@ -151,7 +151,7 @@ export function SacrificeInterface({ onClose }) {
 
         const timer = setTimeout(fetchQuote, 500); // Debounce
         return () => clearTimeout(timer);
-    }, [amount, inputMint, targetMint]);
+    }, [amount, inputMint, targetMint, slippageBps]);
 
     // Switch Input/Output
     const switchAssets = () => {
