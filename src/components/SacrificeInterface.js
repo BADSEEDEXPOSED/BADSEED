@@ -1,4 +1,5 @@
 /* global BigInt */
+// Fixed imports for Netlify Build
 import React, { useState, useEffect, useMemo } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { PublicKey, Transaction, TransactionInstruction, SystemProgram } from '@solana/web3.js';
