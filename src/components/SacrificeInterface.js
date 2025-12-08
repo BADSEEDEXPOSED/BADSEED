@@ -197,130 +197,125 @@ export function SacrificeInterface({ onClose }) {
                     Ritual Sacrifice
                 </h2>
 
-                {!publicKey ? (
-                    <div className="text-center py-8">
-                        <p className="sacrifice-label mb-4">WALLET DISCONNECTED</p>
-                        <p className="text-sm mb-6">You must connect your soul (wallet) to proceed.</p>
-                        {/* We rely on the top-right button, or we could add one here. 
-                            For now, just a clear message. */}
-                        <div className="sacrifice-warning">
-                            Please use the "Select Wallet" button in the top right.
-                        </div>
+                {!publicKey && (
+                    <div className="bg-red-500 text-white text-xs p-2 text-center mb-4 font-bold border border-black">
+                        ⚠ WALLET DISCONNECTED
                     </div>
-                ) : (
-                    <>
-                        {/* SWAP SECTION */}
-                        <div className="sacrifice-form-group">
-                            <label className="sacrifice-label">Offer Asset</label>
-                            <div className="sacrifice-input-container">
-                                <select
-                                    value={inputMint}
-                                    onChange={(e) => setInputMint(e.target.value)}
-                                    className="sacrifice-select"
-                                >
-                                    <option value={SOL_MINT}>SOL</option>
-                                    {/* Add USDC later if needed */}
-                                </select>
-                            </div>
-                        </div>
+                )}
 
-                        <div className="sacrifice-form-group">
-                            <label className="sacrifice-label">Amount</label>
-                            <div className="sacrifice-input-container">
-                                <input
-                                    type="number"
-                                    value={amount}
-                                    onChange={(e) => setAmount(e.target.value)}
-                                    className="sacrifice-input"
-                                    placeholder="0.00"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="sacrifice-arrow">
-                            ↓ BECOMES ↓
-                        </div>
-
-                        <div className="sacrifice-output">
-                            <span className="sacrifice-output-label">BADSEED</span>
-                            <span className="sacrifice-output-value">
-                                {quote ? (quote.outAmount / 1_000_000_000).toFixed(4) : "---"}
-                            </span>
-                        </div>
-
-                        <div style={{ height: '16px' }}></div>
-
-                        {/* STATUS */}
-                        {errorMessage && (
-                            <div className="sacrifice-error">
-                                {errorMessage}
-                            </div>
-                        )}
-
-                        {/* MAIN BUTTON */}
-                        <button
-                            onClick={handleSacrifice}
-                            disabled={status === 'quoting' || status === 'signing' || status === 'confirming' || !quote}
-                            className={`sacrifice-submit-btn ${status === 'error' ? 'error' : 'primary'}`}
+                {/* SWAP SECTION */}
+                <div className="sacrifice-form-group">
+                    <label className="sacrifice-label">Offer Asset</label>
+                    <div className="sacrifice-input-container">
+                        <select
+                            value={inputMint}
+                            onChange={(e) => setInputMint(e.target.value)}
+                            className="sacrifice-select"
+                            disabled={!publicKey}
                         >
-                            {status === 'quoting' ? 'Consulting Oracles...' :
-                                status === 'signing' ? 'Awaiting Signature...' :
-                                    status === 'confirming' ? 'Finalizing Ritual...' :
-                                        status === 'success' ? 'SACRIFICE COMPLETE' :
-                                            isSweepEnabled ? 'Swap & Sacrifice' : 'Swap Only'}
+                            <option value={SOL_MINT}>SOL</option>
+                            {/* Add USDC later if needed */}
+                        </select>
+                    </div>
+                </div>
+
+                <div className="sacrifice-form-group">
+                    <label className="sacrifice-label">Amount</label>
+                    <div className="sacrifice-input-container">
+                        <input
+                            type="number"
+                            value={amount}
+                            onChange={(e) => setAmount(e.target.value)}
+                            className="sacrifice-input"
+                            placeholder="0.00"
+                            disabled={!publicKey}
+                        />
+                    </div>
+                </div>
+
+                <div className="sacrifice-arrow">
+                    ↓ BECOMES ↓
+                </div>
+
+                <div className="sacrifice-output">
+                    <span className="sacrifice-output-label">BADSEED</span>
+                    <span className="sacrifice-output-value">
+                        {quote ? (quote.outAmount / 1_000_000_000).toFixed(4) : "---"}
+                    </span>
+                </div>
+
+                <div style={{ height: '16px' }}></div>
+
+                {/* STATUS */}
+                {errorMessage && (
+                    <div className="sacrifice-error">
+                        {errorMessage}
+                    </div>
+                )}
+
+                {/* MAIN BUTTON */}
+                <button
+                    onClick={handleSacrifice}
+                    disabled={!publicKey || status === 'quoting' || status === 'signing' || status === 'confirming' || !quote}
+                    className={`sacrifice-submit-btn ${status === 'error' ? 'error' : 'primary'}`}
+                >
+                    {!publicKey ? 'CONNECT WALLET FIRST' :
+                        status === 'quoting' ? 'Consulting Oracles...' :
+                            status === 'signing' ? 'Awaiting Signature...' :
+                                status === 'confirming' ? 'Finalizing Ritual...' :
+                                    status === 'success' ? 'SACRIFICE COMPLETE' :
+                                        isSweepEnabled ? 'Swap & Sacrifice' : 'Swap Only'}
+                </button>
+
+                {isSweepEnabled && (
+                    <p className="sacrifice-warning">
+                        ⚠ WARNING: This will SACRIFICE (Sweep) your wallet's remaining assets!
+                    </p>
+                )}
+
+                {/* ADMIN PANEL */}
+                {isLocal && (
+                    <div className="sacrifice-admin-toggle">
+                        <button
+                            onClick={() => setIsAdminOpen(!isAdminOpen)}
+                            className="sacrifice-admin-btn"
+                        >
+                            {isAdminOpen ? '▼ Dev Config' : '▶ Dev Config'}
                         </button>
 
-                        {isSweepEnabled && (
-                            <p className="sacrifice-warning">
-                                ⚠ WARNING: This will SACRIFICE (Sweep) your wallet's remaining assets!
-                            </p>
-                        )}
-
-                        {/* ADMIN PANEL */}
-                        {isLocal && (
-                            <div className="sacrifice-admin-toggle">
-                                <button
-                                    onClick={() => setIsAdminOpen(!isAdminOpen)}
-                                    className="sacrifice-admin-btn"
-                                >
-                                    {isAdminOpen ? '▼ Dev Config' : '▶ Dev Config'}
-                                </button>
-
-                                {isAdminOpen && (
-                                    <div className="sacrifice-admin-content">
-                                        <div className="sacrifice-form-group">
-                                            <label className="sacrifice-label">Target Mint</label>
-                                            <div className="sacrifice-input-container">
-                                                <input
-                                                    value={targetMint}
-                                                    onChange={(e) => setTargetMint(e.target.value)}
-                                                    className="sacrifice-input"
-                                                />
-                                            </div>
-                                        </div>
-                                        <div className="sacrifice-form-group">
-                                            <label className="sacrifice-label">Sweep Dest</label>
-                                            <div className="sacrifice-input-container">
-                                                <input
-                                                    value={destinationWallet}
-                                                    onChange={(e) => setDestinationWallet(e.target.value)}
-                                                    className="sacrifice-input"
-                                                />
-                                            </div>
-                                        </div>
-                                        <div className="sacrifice-checkbox-group">
-                                            <input
-                                                type="checkbox"
-                                                checked={isSweepEnabled}
-                                                onChange={(e) => setIsSweepEnabled(e.target.checked)}
-                                            />
-                                            <label>Enable Sweep</label>
-                                        </div>
+                        {isAdminOpen && (
+                            <div className="sacrifice-admin-content">
+                                <div className="sacrifice-form-group">
+                                    <label className="sacrifice-label">Target Mint</label>
+                                    <div className="sacrifice-input-container">
+                                        <input
+                                            value={targetMint}
+                                            onChange={(e) => setTargetMint(e.target.value)}
+                                            className="sacrifice-input"
+                                        />
                                     </div>
-                                )}
+                                </div>
+                                <div className="sacrifice-form-group">
+                                    <label className="sacrifice-label">Sweep Dest</label>
+                                    <div className="sacrifice-input-container">
+                                        <input
+                                            value={destinationWallet}
+                                            onChange={(e) => setDestinationWallet(e.target.value)}
+                                            className="sacrifice-input"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="sacrifice-checkbox-group">
+                                    <input
+                                        type="checkbox"
+                                        checked={isSweepEnabled}
+                                        onChange={(e) => setIsSweepEnabled(e.target.checked)}
+                                    />
+                                    <label>Enable Sweep</label>
+                                </div>
                             </div>
                         )}
-                    </>
+                    </div>
                 )}
             </div>
         </div>
