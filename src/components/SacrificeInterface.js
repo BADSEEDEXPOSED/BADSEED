@@ -71,9 +71,19 @@ export function SacrificeInterface({ onClose }) {
                         balance: info.tokenAmount.uiAmount,
                         decimals: info.tokenAmount.decimals
                     };
-                }).filter(t => t.balance > 0 && t.mint !== targetMint); // Hide empty and target token
+                }).filter(t => t.balance > 0 || t.mint === inputMint); // Hide empty unless it's the current input
 
-                setUserTokens([solToken, ...splTokens]);
+                // If inputMint is SOL (which it is by default), it's already added.
+                // If inputMint is BADSEED (after switch), we need to ensure it's in the list.
+
+                // Sort: SOL first, then by balance descending
+                const sortedTokens = [solToken, ...splTokens].sort((a, b) => {
+                    if (a.mint === SOL_MINT) return -1;
+                    if (b.mint === SOL_MINT) return 1;
+                    return b.balance - a.balance;
+                });
+
+                setUserTokens(sortedTokens);
             } catch (err) {
                 console.error("Error fetching assets:", err);
             } finally {
@@ -85,7 +95,7 @@ export function SacrificeInterface({ onClose }) {
         // Refresh every 10s
         const interval = setInterval(fetchAssets, 10000);
         return () => clearInterval(interval);
-    }, [publicKey, connection, targetMint]);
+    }, [publicKey, connection, targetMint, inputMint]); // Added inputMint dependency to re-include it if switched
 
     // Fetch Quote
 
@@ -306,9 +316,18 @@ export function SacrificeInterface({ onClose }) {
                             className="sacrifice-select w-1/2 text-right"
                             disabled={!publicKey || isLoadingTokens}
                         >
+                            {/* Ensure selected asset is always visible even if not in list */}
+                            {!userTokens.some(t => t.mint === inputMint) && (
+                                <option value={inputMint}>
+                                    {inputMint === SOL_MINT ? 'SOL' :
+                                        inputMint === DEFAULT_TARGET_MINT ? 'BADSEED' :
+                                            'Selected Asset'}
+                                </option>
+                            )}
+
                             {userTokens.map(token => (
                                 <option key={token.mint} value={token.mint}>
-                                    {token.symbol === 'UNKNOWN' ? 'UNK' : token.symbol}
+                                    {token.symbol === 'UNKNOWN' ? (token.mint === DEFAULT_TARGET_MINT ? 'BADSEED' : 'UNK') : token.symbol}
                                 </option>
                             ))}
                             {userTokens.length === 0 && <option value={SOL_MINT}>SOL</option>}
