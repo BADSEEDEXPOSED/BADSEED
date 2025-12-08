@@ -22,6 +22,11 @@ export function SacrificeInterface({ onClose }) {
     const [status, setStatus] = useState('idle');
     const [errorMessage, setErrorMessage] = useState('');
 
+    // Settings
+    const [slippageBps, setSlippageBps] = useState(50); // 0.5% default
+
+    // Token List State
+
     // Token List State
     const [userTokens, setUserTokens] = useState([]);
     const [isLoadingTokens, setIsLoadingTokens] = useState(false);
@@ -101,9 +106,9 @@ export function SacrificeInterface({ onClose }) {
                 // Let's assume input is SOL for this iteration as verified in "Input token (SOL / USDC / whatever)"
                 // If we support USDC, we need to know decimals. 
                 // Let's default to SOL (9 decimals) for the calculation:
-                const atomicAmount = Math.floor(parseFloat(amount) * 1_000_000_000);
+                const atomicAmount = Math.floor(parseFloat(amount) * 1_000_000_000); // TODO: Handle decimals dynamically!
 
-                const q = await getJupiterQuote(inputMint, targetMint, atomicAmount);
+                const q = await getJupiterQuote(inputMint, targetMint, atomicAmount, slippageBps);
                 if (q.error) throw new Error(q.error);
                 setQuote(q);
                 setStatus('ready');
@@ -117,6 +122,14 @@ export function SacrificeInterface({ onClose }) {
         const timer = setTimeout(fetchQuote, 500); // Debounce
         return () => clearTimeout(timer);
     }, [amount, inputMint, targetMint]);
+
+    // Switch Input/Output
+    const switchAssets = () => {
+        const temp = inputMint;
+        setInputMint(targetMint);
+        setTargetMint(temp);
+        setQuote(null); // Reset quote
+    };
 
     // EXECUTE SACRIFICE
     const handleSacrifice = async () => {
@@ -254,56 +267,92 @@ export function SacrificeInterface({ onClose }) {
                     </div>
                 )}
 
+                {/* SLIPPAGE SETTINGS */}
+                <div className="sacrifice-settings">
+                    <span className="text-[0.6rem] mr-2 text-gray-500 uppercase self-center">Max Slippage:</span>
+                    <div className="flex gap-1">
+                        {[10, 50, 100].map(bps => (
+                            <button
+                                key={bps}
+                                onClick={() => setSlippageBps(bps)}
+                                className={`sacrifice-slippage-btn ${slippageBps === bps ? 'active' : ''}`}
+                            >
+                                {bps / 100}%
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
                 {/* SWAP SECTION */}
                 <div className="sacrifice-form-group">
                     <label className="sacrifice-label flex justify-between">
                         <span>Offer Asset</span>
-                        {/* Show Balance */}
                         <span className="opacity-70">
                             Bal: {userTokens.find(t => t.mint === inputMint)?.balance.toLocaleString() || '0'}
                         </span>
                     </label>
                     <div className="sacrifice-input-container">
-                        <select
-                            value={inputMint}
-                            onChange={(e) => setInputMint(e.target.value)}
-                            className="sacrifice-select"
-                            disabled={!publicKey || isLoadingTokens}
-                        >
-                            {userTokens.map(token => (
-                                <option key={token.mint} value={token.mint}>
-                                    {token.symbol === 'UNKNOWN' ? `${token.mint.slice(0, 4)}...${token.mint.slice(-4)}` : token.symbol} ({token.balance.toFixed(4)})
-                                </option>
-                            ))}
-                            {userTokens.length === 0 && <option value={SOL_MINT}>Loading Assets...</option>}
-                        </select>
-                    </div>
-                </div>
-
-                <div className="sacrifice-form-group">
-                    <label className="sacrifice-label">Amount</label>
-                    <div className="sacrifice-input-container">
                         <input
                             type="number"
                             value={amount}
                             onChange={(e) => setAmount(e.target.value)}
-                            className="sacrifice-input"
+                            className="sacrifice-input text-right pr-2 w-1/2"
                             placeholder="0.00"
                             disabled={!publicKey}
                         />
+                        <select
+                            value={inputMint}
+                            onChange={(e) => setInputMint(e.target.value)}
+                            className="sacrifice-select w-1/2 text-right"
+                            disabled={!publicKey || isLoadingTokens}
+                        >
+                            {userTokens.map(token => (
+                                <option key={token.mint} value={token.mint}>
+                                    {token.symbol === 'UNKNOWN' ? 'UNK' : token.symbol}
+                                </option>
+                            ))}
+                            {userTokens.length === 0 && <option value={SOL_MINT}>SOL</option>}
+                        </select>
                     </div>
                 </div>
 
-                <div className="sacrifice-arrow">
-                    ↓ BECOMES ↓
+                {/* ASSET SWITCHER */}
+                <div className="sacrifice-arrow" onClick={switchAssets} title="Switch Assets">
+                    ⇅
                 </div>
 
-                <div className="sacrifice-output">
-                    <span className="sacrifice-output-label">BADSEED</span>
-                    <span className="sacrifice-output-value">
-                        {quote ? (quote.outAmount / 1_000_000_000).toFixed(4) : "---"}
-                    </span>
+                {/* OUTPUT SECTION */}
+                <div className="sacrifice-form-group">
+                    <label className="sacrifice-label">Receive (Est.)</label>
+                    <div className="sacrifice-output flex justify-between items-center">
+                        <span className="sacrifice-output-value">
+                            {quote ? (quote.outAmount / 1_000_000_000).toFixed(6) : "0.00"}
+                        </span>
+                        <span className="text-sm font-bold opacity-80">
+                            {targetMint === SOL_MINT ? 'SOL' : 'BADSEED'}
+                        </span>
+                    </div>
                 </div>
+
+                {/* INFO / FEES */}
+                {quote && (
+                    <div className="mt-2 p-2 border border-gray-800 bg-black text-xs">
+                        <div className="sacrifice-info-row">
+                            <span>Rate:</span>
+                            <span>1 {userTokens.find(t => t.mint === inputMint)?.symbol || 'Input'} ≈ {(quote.outAmount / (amount * 1_000_000_000)).toFixed(4)} {targetMint === SOL_MINT ? 'SOL' : 'BADSEED'}</span>
+                        </div>
+                        <div className="sacrifice-info-row">
+                            <span>Network Fee:</span>
+                            <span>~0.000005 SOL</span>
+                        </div>
+                        <div className="sacrifice-info-row">
+                            <span>Price Impact:</span>
+                            <span className={quote.priceImpactPct > 1 ? 'text-red-500' : 'text-green-500'}>
+                                {quote.priceImpactPct ? `${quote.priceImpactPct}%` : '< 0.1%'}
+                            </span>
+                        </div>
+                    </div>
+                )}
 
                 <div style={{ height: '16px' }}></div>
 

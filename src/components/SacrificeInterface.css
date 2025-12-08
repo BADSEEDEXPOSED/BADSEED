@@ -12,12 +12,12 @@
 
 .sacrifice-modal {
     width: 400px;
-    background-color: #C0C0C0;
-    color: #000;
-    border: 2px solid #000;
+    background-color: #000000;
+    color: #C0C0C0;
+    border: 2px solid #C0C0C0;
     padding: 24px;
     border-radius: 8px;
-    box-shadow: 0 0 30px rgba(255, 255, 255, 0.15);
+    box-shadow: 0 0 30px rgba(192, 192, 192, 0.1);
     font-family: 'Courier New', monospace;
     position: relative;
 }
@@ -31,11 +31,12 @@
     background: none;
     border: none;
     cursor: pointer;
-    color: #000;
+    color: #C0C0C0;
 }
 
 .sacrifice-close-btn:hover {
-    color: #ff0000;
+    color: #ffffff;
+    text-shadow: 0 0 8px #ffffff;
 }
 
 .sacrifice-title {
@@ -45,8 +46,9 @@
     text-align: center;
     text-transform: uppercase;
     letter-spacing: 0.1em;
-    border-bottom: 2px solid #000;
+    border-bottom: 2px solid #C0C0C0;
     padding-bottom: 8px;
+    color: #C0C0C0;
 }
 
 .sacrifice-form-group {
@@ -54,18 +56,25 @@
 }
 
 .sacrifice-label {
-    display: block;
+    display: flex;
+    justify-content: space-between;
     font-size: 0.75rem;
     font-weight: bold;
     margin-bottom: 4px;
     text-transform: uppercase;
+    color: #C0C0C0;
 }
 
 .sacrifice-input-container {
-    background-color: #fff;
-    border: 1px solid #000;
+    background-color: #111;
+    border: 1px solid #C0C0C0;
     padding: 4px;
     display: flex;
+    transition: box-shadow 0.2s;
+}
+
+.sacrifice-input-container:focus-within {
+    box-shadow: 0 0 10px rgba(192, 192, 192, 0.2);
 }
 
 .sacrifice-select,
@@ -78,21 +87,30 @@
     font-family: inherit;
     font-size: 1rem;
     padding: 4px;
+    color: #ffffff;
 }
 
 .sacrifice-arrow {
     text-align: center;
-    font-size: 0.875rem;
+    font-size: 1.2rem;
     font-weight: bold;
     margin: 16px 0;
+    color: #C0C0C0;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.sacrifice-arrow:hover {
+    transform: scale(1.2);
+    color: #fff;
 }
 
 .sacrifice-output {
-    background-color: #000;
-    color: #fff;
+    background-color: #222;
+    color: #C0C0C0;
     padding: 12px;
     text-align: center;
-    border: 1px solid #fff;
+    border: 1px solid #C0C0C0;
 }
 
 .sacrifice-output-label {
@@ -104,15 +122,24 @@
 
 .sacrifice-output-value {
     font-size: 1.25rem;
+    color: #fff;
+}
+
+.sacrifice-info-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.7rem;
+    color: #888;
+    margin: 4px 0;
 }
 
 .sacrifice-error {
-    color: #b91c1c;
-    background-color: #fca5a5;
+    color: #ff4444;
+    background-color: rgba(255, 0, 0, 0.1);
     padding: 8px;
     font-size: 0.75rem;
     margin-bottom: 16px;
-    border: 1px solid #ef4444;
+    border: 1px solid #ff4444;
     font-weight: bold;
 }
 
@@ -123,31 +150,34 @@
     font-weight: 900;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    border: 2px solid #000;
+    border: 2px solid #C0C0C0;
     transition: all 0.2s;
     cursor: pointer;
-    margin-top: 8px;
+    margin-top: 16px;
 }
 
 .sacrifice-submit-btn.primary {
-    background-color: #000;
-    color: #C0C0C0;
+    background-color: #C0C0C0;
+    color: #000;
 }
 
 .sacrifice-submit-btn.primary:hover {
     background-color: #fff;
-    color: #000;
+    box-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
 }
 
 .sacrifice-submit-btn.error {
-    background-color: #ef4444;
+    background-color: #ff0000;
     color: #fff;
-    border-color: #b91c1c;
+    border-color: #ff0000;
 }
 
 .sacrifice-submit-btn:disabled {
-    opacity: 0.5;
+    opacity: 0.3;
     cursor: not-allowed;
+    background-color: #333;
+    border-color: #555;
+    color: #888;
 }
 
 .sacrifice-warning {
@@ -155,21 +185,45 @@
     text-align: center;
     margin-top: 8px;
     font-weight: bold;
-    opacity: 0.7;
+    color: #ffaa00;
+    text-transform: uppercase;
+}
+
+/* Slippage & Settings */
+.sacrifice-settings {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 12px;
+}
+
+.sacrifice-slippage-btn {
+    background: transparent;
+    border: 1px solid #555;
+    color: #888;
+    font-size: 0.7rem;
+    padding: 2px 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.sacrifice-slippage-btn:hover,
+.sacrifice-slippage-btn.active {
+    border-color: #C0C0C0;
+    color: #fff;
 }
 
 /* Admin Panel */
 .sacrifice-admin-toggle {
     margin-top: 32px;
     padding-top: 16px;
-    border-top: 1px solid rgba(0, 0, 0, 0.2);
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .sacrifice-admin-btn {
     font-size: 0.65rem;
     text-transform: uppercase;
     font-weight: bold;
-    color: #4b5563;
+    color: #666;
     background: none;
     border: none;
     cursor: pointer;
@@ -179,12 +233,13 @@
 }
 
 .sacrifice-admin-btn:hover {
-    color: #000;
+    color: #fff;
 }
 
 .sacrifice-admin-content {
     margin-top: 8px;
     font-size: 0.75rem;
+    color: #aaa;
 }
 
 .sacrifice-checkbox-group {
