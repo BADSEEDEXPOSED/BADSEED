@@ -807,7 +807,7 @@ function App() {
       {showDashboard && (
         <button
           onClick={() => setShowSacrificeModal(true)}
-          className="fixed top-4 left-4 z-40 bg-transparent border-2 border-white/20 hover:border-white text-white/50 hover:text-white px-4 py-2 font-mono text-xs uppercase tracking-[0.2em] transition-all backdrop-blur-sm"
+          className="fixed top-4 left-4 z-[9999] cursor-pointer bg-black/50 border-2 border-white/20 hover:border-white text-white/50 hover:text-white px-4 py-2 font-mono text-xs uppercase tracking-[0.2em] transition-all backdrop-blur-md"
         >
           Sacrifice
         </button>
