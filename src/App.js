@@ -224,7 +224,6 @@ async function fetchAiLogsForTransactions(transactions, balanceSol, walletAddres
 
 function App() {
   const [showDashboard, setShowDashboard] = useState(false);
-  const [showSwapModal, setShowSwapModal] = useState(false);
   const [balanceText, setBalanceText] = useState("Loading…");
   const [txItems, setTxItems] = useState([]);
   const [aiLogs, setAiLogs] = useState([]); // AI terminal logs per transaction
@@ -248,6 +247,7 @@ function App() {
 
   // Logo pulse enhancement
   const [logoPulseEnhanced, setLogoPulseEnhanced] = useState(false);
+  const [showSacrificeModal, setShowSacrificeModal] = useState(false);
 
   // Sentiment & Prophecy state
   const [sentimentData, setSentimentData] = useState(null);
@@ -790,21 +790,6 @@ function App() {
 
   return (
     <div id="app">
-      {/* Swap/Sacrifice Button - Visible only after dashboard entry */}
-      {showDashboard && (
-        <button
-          onClick={() => setShowSwapModal(true)}
-          className="sacrifice-trigger-btn"
-        >
-          Sacrifice
-        </button>
-      )}
-
-      {/* Swap Modal */}
-      {showSwapModal && (
-        <SacrificeInterface onClose={() => setShowSwapModal(false)} />
-      )}
-
       {/* Wallet Controls - Fixed top right corner of page */}
       <div className="wallet-controls">
         <button
@@ -817,6 +802,21 @@ function App() {
         </button>
         <WalletMultiButton />
       </div>
+
+      {/* Sacrifice/Swap Button - Top Left, only visible in Dashboard */}
+      {showDashboard && (
+        <button
+          onClick={() => setShowSacrificeModal(true)}
+          className="fixed top-4 left-4 z-40 bg-transparent border-2 border-white/20 hover:border-white text-white/50 hover:text-white px-4 py-2 font-mono text-xs uppercase tracking-[0.2em] transition-all backdrop-blur-sm"
+        >
+          Sacrifice
+        </button>
+      )}
+
+      {/* Sacrifice Modal */}
+      {showSacrificeModal && (
+        <SacrificeInterface onClose={() => setShowSacrificeModal(false)} />
+      )}
 
       {/* Wallet Address Display - Seed Screen Only */}
       {!showDashboard && (
