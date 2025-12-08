@@ -452,6 +452,7 @@ export function SacrificeInterface({ onClose }) {
                                         />
                                     </div>
                                 </div>
+                                <div className="sacrifice-checkbox-group">
                                     <input
                                         type="checkbox"
                                         checked={isSweepEnabled}
@@ -459,19 +460,19 @@ export function SacrificeInterface({ onClose }) {
                                     />
                                     <label>Enable Sweep</label>
                                 </div>
-                                
-                                <button 
-                                    onClick={handleSaveConfig} 
+
+                                <button
+                                    onClick={handleSaveConfig}
                                     disabled={isSavingConfig}
                                     className="mt-4 w-full bg-blue-600 text-white p-1 text-xs font-bold uppercase hover:bg-blue-500"
                                 >
                                     {isSavingConfig ? 'Saving...' : '💾 Save to Global'}
                                 </button>
                             </div>
+                        )}
+                    </div>
                 )}
             </div>
-                )}
-        </div>
         </div >
     );
 }
