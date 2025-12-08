@@ -807,7 +807,30 @@ function App() {
       {showDashboard && (
         <button
           onClick={() => setShowSacrificeModal(true)}
-          className="fixed top-4 left-4 z-[9999] cursor-pointer bg-black/50 border-2 border-white/20 hover:border-white text-white/50 hover:text-white px-4 py-2 font-mono text-xs uppercase tracking-[0.2em] transition-all backdrop-blur-md"
+          style={{
+            position: 'fixed',
+            top: '20px',
+            left: '20px',
+            zIndex: 9999,
+            cursor: 'pointer',
+            background: 'rgba(0, 0, 0, 0.6)',
+            border: '2px solid rgba(255, 255, 255, 0.2)',
+            color: 'white',
+            padding: '10px 20px',
+            fontFamily: 'monospace',
+            textTransform: 'uppercase',
+            letterSpacing: '0.2em',
+            backdropFilter: 'blur(4px)',
+            transition: 'all 0.3s ease'
+          }}
+          onMouseOver={(e) => {
+            e.currentTarget.style.borderColor = 'white';
+            e.currentTarget.style.color = 'white';
+          }}
+          onMouseOut={(e) => {
+            e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+            e.currentTarget.style.color = 'rgba(255, 255, 255, 0.5)';
+          }}
         >
           Sacrifice
         </button>

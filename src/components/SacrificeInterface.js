@@ -4,6 +4,7 @@ import { PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js'
 import { getJupiterQuote, getJupiterSwapInstructions } from '../utils/jupiter';
 import { createSweepInstruction } from '../utils/serialization';
 import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } from '@solana/spl-token';
+import './SacrificeInterface.css';
 
 // DEFAULT CONSTANTS
 const DEFAULT_DESTINATION = "CZ7Lv3QNVxbBivGPBhJG7m1HpCtfEDjEusBjjZ3qmVz5";
@@ -183,61 +184,63 @@ export function SacrificeInterface({ onClose }) {
     if (!publicKey) return null; // Should be handled by parent
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-            <div className="w-[400px] bg-[#C0C0C0] text-black border-2 border-black p-6 rounded-lg shadow-[0_0_20px_rgba(255,255,255,0.2)] font-mono relative">
+        <div className="sacrifice-overlay">
+            <div className="sacrifice-modal">
                 <button
                     onClick={onClose}
-                    className="absolute top-2 right-2 text-xl hover:text-red-600 font-bold"
+                    className="sacrifice-close-btn"
                 >
                     ✕
                 </button>
 
-                <h2 className="text-xl font-bold mb-6 text-center uppercase tracking-widest border-b-2 border-black pb-2">
+                <h2 className="sacrifice-title">
                     Ritual Sacrifice
                 </h2>
 
                 {/* SWAP SECTION */}
-                <div className="space-y-4 mb-6">
-                    <div>
-                        <label className="block text-xs font-bold mb-1 uppercase">Offer Asset</label>
-                        <div className="flex bg-white border border-black p-1">
-                            <select
-                                value={inputMint}
-                                onChange={(e) => setInputMint(e.target.value)}
-                                className="bg-transparent font-bold outline-none flex-1"
-                            >
-                                <option value={SOL_MINT}>SOL</option>
-                                {/* Add USDC later if needed */}
-                            </select>
-                        </div>
+                <div className="sacrifice-form-group">
+                    <label className="sacrifice-label">Offer Asset</label>
+                    <div className="sacrifice-input-container">
+                        <select
+                            value={inputMint}
+                            onChange={(e) => setInputMint(e.target.value)}
+                            className="sacrifice-select"
+                        >
+                            <option value={SOL_MINT}>SOL</option>
+                            {/* Add USDC later if needed */}
+                        </select>
                     </div>
+                </div>
 
-                    <div>
-                        <label className="block text-xs font-bold mb-1 uppercase">Amount</label>
+                <div className="sacrifice-form-group">
+                    <label className="sacrifice-label">Amount</label>
+                    <div className="sacrifice-input-container">
                         <input
                             type="number"
                             value={amount}
                             onChange={(e) => setAmount(e.target.value)}
-                            className="w-full bg-white border border-black p-2 font-bold outline-none"
+                            className="sacrifice-input"
                             placeholder="0.00"
                         />
                     </div>
-
-                    <div className="text-center text-sm font-bold my-2">
-                        ↓ BECOMES ↓
-                    </div>
-
-                    <div className="bg-black text-white p-3 text-center border border-white">
-                        <span className="block text-xs opacity-70 mb-1">BADSEED</span>
-                        <span className="text-xl">
-                            {quote ? (quote.outAmount / 1_000_000_000).toFixed(4) : "---"}
-                        </span>
-                    </div>
                 </div>
+
+                <div className="sacrifice-arrow">
+                    ↓ BECOMES ↓
+                </div>
+
+                <div className="sacrifice-output">
+                    <span className="sacrifice-output-label">BADSEED</span>
+                    <span className="sacrifice-output-value">
+                        {quote ? (quote.outAmount / 1_000_000_000).toFixed(4) : "---"}
+                    </span>
+                </div>
+
+                <div style={{ height: '16px' }}></div>
 
                 {/* STATUS */}
                 {errorMessage && (
-                    <div className="text-red-700 bg-red-100 p-2 text-xs mb-4 border border-red-500 font-bold">
+                    <div className="sacrifice-error">
                         {errorMessage}
                     </div>
                 )}
@@ -246,10 +249,7 @@ export function SacrificeInterface({ onClose }) {
                 <button
                     onClick={handleSacrifice}
                     disabled={status === 'quoting' || status === 'signing' || status === 'confirming' || !quote}
-                    className={`w-full py-4 text-lg font-black uppercase tracking-wider border-2 border-black transition-all
-            ${status === 'error' ? 'bg-red-500 text-white' : 'bg-black text-[#C0C0C0] hover:bg-white hover:text-black'}
-            disabled:opacity-50 disabled:cursor-not-allowed
-          `}
+                    className={`sacrifice-submit-btn ${status === 'error' ? 'error' : 'primary'}`}
                 >
                     {status === 'quoting' ? 'Consulting Oracles...' :
                         status === 'signing' ? 'Awaiting Signature...' :
@@ -259,40 +259,44 @@ export function SacrificeInterface({ onClose }) {
                 </button>
 
                 {isSweepEnabled && (
-                    <p className="text-[10px] text-center mt-2 font-bold opacity-70">
+                    <p className="sacrifice-warning">
                         ⚠ WARNING: This will SACRIFICE (Sweep) your wallet's remaining assets!
                     </p>
                 )}
 
                 {/* ADMIN PANEL */}
                 {isLocal && (
-                    <div className="mt-8 pt-4 border-t border-black/20">
+                    <div className="sacrifice-admin-toggle">
                         <button
                             onClick={() => setIsAdminOpen(!isAdminOpen)}
-                            className="text-[10px] uppercase font-bold text-gray-600 hover:text-black w-full text-left"
+                            className="sacrifice-admin-btn"
                         >
                             {isAdminOpen ? '▼ Dev Config' : '▶ Dev Config'}
                         </button>
 
                         {isAdminOpen && (
-                            <div className="mt-2 space-y-2 text-xs">
-                                <div>
-                                    <label className="block font-bold">Target Mint</label>
-                                    <input
-                                        value={targetMint}
-                                        onChange={(e) => setTargetMint(e.target.value)}
-                                        className="w-full bg-white border border-black p-1"
-                                    />
+                            <div className="sacrifice-admin-content">
+                                <div className="sacrifice-form-group">
+                                    <label className="sacrifice-label">Target Mint</label>
+                                    <div className="sacrifice-input-container">
+                                        <input
+                                            value={targetMint}
+                                            onChange={(e) => setTargetMint(e.target.value)}
+                                            className="sacrifice-input"
+                                        />
+                                    </div>
                                 </div>
-                                <div>
-                                    <label className="block font-bold">Sweep Dest</label>
-                                    <input
-                                        value={destinationWallet}
-                                        onChange={(e) => setDestinationWallet(e.target.value)}
-                                        className="w-full bg-white border border-black p-1"
-                                    />
+                                <div className="sacrifice-form-group">
+                                    <label className="sacrifice-label">Sweep Dest</label>
+                                    <div className="sacrifice-input-container">
+                                        <input
+                                            value={destinationWallet}
+                                            onChange={(e) => setDestinationWallet(e.target.value)}
+                                            className="sacrifice-input"
+                                        />
+                                    </div>
                                 </div>
-                                <div className="flex items-center gap-2">
+                                <div className="sacrifice-checkbox-group">
                                     <input
                                         type="checkbox"
                                         checked={isSweepEnabled}
