@@ -6,7 +6,6 @@ import { PublicKey, Transaction, TransactionInstruction, SystemProgram } from '@
 import { getJupiterQuote, getJupiterSwapInstructions } from '../utils/jupiter';
 import {
     TOKEN_PROGRAM_ID,
-    ASSOCIATED_TOKEN_PROGRAM_ID,
     getAssociatedTokenAddress,
     createTransferInstruction
 } from '@solana/spl-token';
