@@ -1,15 +1,13 @@
 const { createProxyMiddleware } = require('http-proxy-middleware');
 
 module.exports = function (app) {
-    console.log('🔧 Setting up proxy for /.netlify/functions -> http://localhost:9998');
+    console.log('🔧 Setting up proxy for /.netlify/functions -> https://badseed.exposed');
     app.use(
         '/.netlify/functions',
         createProxyMiddleware({
-            target: 'http://localhost:9998',
+            target: 'https://badseed.exposed',
             changeOrigin: true,
-            pathRewrite: {
-                '^/': '/.netlify/functions/'
-            },
+            secure: true, // Use SSL
             logLevel: 'debug',
             onProxyReq: (proxyReq, req, res) => {
                 console.log('📤 Proxying:', req.method, req.url, '-> http://localhost:9998' + req.url);
