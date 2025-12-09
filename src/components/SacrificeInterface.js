@@ -60,9 +60,13 @@ export function SacrificeInterface({ onClose }) {
                     setTargetMint(data.targetMint || DEFAULT_TARGET_MINT);
                     setDestinationWallet(data.destinationWallet || DEFAULT_DESTINATION);
                     setIsSweepEnabled(data.isSweepEnabled ?? true);
+                } else {
+                    // Silent fallback for 504/404
+                    // console.warn("Config fetch status:", res.status);
                 }
             } catch (err) {
-                console.warn("Failed to sync global config, using defaults:", err);
+                // Silent fallback
+                // console.warn("Config fetch error:", err);
             }
         };
 

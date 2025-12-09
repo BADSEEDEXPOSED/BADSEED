@@ -277,10 +277,17 @@ function App() {
   const fetchSentiment = async () => {
     try {
       const response = await fetch('/.netlify/functions/sentiment-get');
-      const data = await response.json();
-      setSentimentData(data);
+      if (response.ok) {
+        // Only parse if OK and actually JSON
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          const data = await response.json();
+          setSentimentData(data);
+        }
+      }
     } catch (error) {
-      console.error('Failed to fetch sentiment:', error);
+      // Silent fail locally
+      // console.error('Failed to fetch sentiment:', error);
     }
   };
 
@@ -288,10 +295,16 @@ function App() {
   const fetchProphecy = async () => {
     try {
       const response = await fetch('/.netlify/functions/prophecy-get');
-      const data = await response.json();
-      setProphecy(data);
+      if (response.ok) {
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          const data = await response.json();
+          setProphecy(data);
+        }
+      }
     } catch (error) {
-      console.error('Failed to fetch prophecy:', error);
+      // Silent fail locally
+      // console.error('Failed to fetch prophecy:', error);
     }
   };
 
