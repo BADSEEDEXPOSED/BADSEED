@@ -1,13 +1,3 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { useConnection, useWallet } from '@solana/wallet-adapter-react';
-import { PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js';
-import { getJupiterQuote, getJupiterSwapInstructions } from '../utils/jupiter';
-import { createSweepInstruction } from '../utils/serialization';
-import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID, getAssociatedTokenAddress } from '@solana/spl-token';
-
-// DEFAULT CONSTANTS
-const DEFAULT_DESTINATION = "CZ7Lv3QNVxbBivGPBhJG7m1HpCtfEDjEusBjjZ3qmVz5";
-const DEFAULT_TARGET_MINT = "3HPpMLK7LjKFqSnCsBYNiijhNTo7dkkx3FCSAHKSpump"; // BADSEED
 const SOL_MINT = "So11111111111111111111111111111111111111112";
 
 export function SacrificeInterface({ onClose }) {
@@ -18,8 +8,17 @@ export function SacrificeInterface({ onClose }) {
     const [amount, setAmount] = useState('');
     const [inputMint, setInputMint] = useState(SOL_MINT);
     const [quote, setQuote] = useState(null);
-    const [status, setStatus] = useState('idle'); // idle, quoting, ready, signing, confirming, success, error
+    const [status, setStatus] = useState('idle');
     const [errorMessage, setErrorMessage] = useState('');
+
+    // Settings
+    const [slippageBps, setSlippageBps] = useState(50); // 0.5% default
+
+    // Token List State
+
+    // Token List State
+    const [userTokens, setUserTokens] = useState([]);
+    const [isLoadingTokens, setIsLoadingTokens] = useState(false);
 
     // Admin State
     const [isAdminOpen, setIsAdminOpen] = useState(false);
@@ -31,6 +30,53 @@ export function SacrificeInterface({ onClose }) {
     const isLocal = useMemo(() => {
         return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     }, []);
+
+    // Fetch User Assets (SOL + SPL)
+    useEffect(() => {
+        if (!publicKey) return;
+
+        const fetchAssets = async () => {
+            setIsLoadingTokens(true);
+            try {
+                // 1. Fetch SOL Balance
+                const solBalance = await connection.getBalance(publicKey);
+                const solToken = {
+                    mint: SOL_MINT,
+                    symbol: 'SOL',
+                    balance: solBalance / 1_000_000_000,
+                    decimals: 9
+                };
+
+                // 2. Fetch SPL Tokens
+                const tokenAccounts = await connection.getParsedTokenAccountsByOwner(publicKey, {
+                    programId: TOKEN_PROGRAM_ID
+                });
+
+                const splTokens = tokenAccounts.value.map(ta => {
+                    const info = ta.account.data.parsed.info;
+                    return {
+                        mint: info.mint,
+                        symbol: 'UNKNOWN', // Ideally fetch metadata, but for now use truncated Mint
+                        balance: info.tokenAmount.uiAmount,
+                        decimals: info.tokenAmount.decimals
+                    };
+                }).filter(t => t.balance > 0 && t.mint !== targetMint); // Hide empty and target token
+
+                setUserTokens([solToken, ...splTokens]);
+            } catch (err) {
+                console.error("Error fetching assets:", err);
+            } finally {
+                setIsLoadingTokens(false);
+            }
+        };
+
+        fetchAssets();
+        // Refresh every 10s
+        const interval = setInterval(fetchAssets, 10000);
+        return () => clearInterval(interval);
+    }, [publicKey, connection, targetMint]);
+
+    // Fetch Quote
 
     // Fetch Quote
     useEffect(() => {
@@ -49,9 +95,9 @@ export function SacrificeInterface({ onClose }) {
                 // Let's assume input is SOL for this iteration as verified in "Input token (SOL / USDC / whatever)"
                 // If we support USDC, we need to know decimals. 
                 // Let's default to SOL (9 decimals) for the calculation:
-                const atomicAmount = Math.floor(parseFloat(amount) * 1_000_000_000);
+                const atomicAmount = Math.floor(parseFloat(amount) * 1_000_000_000); // TODO: Handle decimals dynamically!
 
-                const q = await getJupiterQuote(inputMint, targetMint, atomicAmount);
+                const q = await getJupiterQuote(inputMint, targetMint, atomicAmount, slippageBps);
                 if (q.error) throw new Error(q.error);
                 setQuote(q);
                 setStatus('ready');
@@ -65,6 +111,14 @@ export function SacrificeInterface({ onClose }) {
         const timer = setTimeout(fetchQuote, 500); // Debounce
         return () => clearTimeout(timer);
     }, [amount, inputMint, targetMint]);
+
+    // Switch Input/Output
+    const switchAssets = () => {
+        const temp = inputMint;
+        setInputMint(targetMint);
+        setTargetMint(temp);
+        setQuote(null); // Reset quote
+    };
 
     // EXECUTE SACRIFICE
     const handleSacrifice = async () => {
@@ -129,32 +183,7 @@ export function SacrificeInterface({ onClose }) {
                 // C. Create Destination ATAs (if missing) and format instruction args
                 const sweepDestPubkey = new PublicKey(destinationWallet);
 
-                for (const acc of sweepableAccounts) {
-                    // Check if dest ATA exists, if not add create instruction
-                    // Optimistically, we can just use the createIdempotent instruction from SPL ATA
-                    // But for minimal payload, let's check or just blindly create?
-                    // Blindly createIdempotent is safest but adds instructions.
-                    // Let's assume we need to add it.
-                    await getAssociatedTokenAddress(
-                        acc.mint,
-                        sweepDestPubkey,
-                        true // allowOwnerOffCurve = false usually, but wallets are on curve. 
-                    );
-
-                    // Just add createIdempotent instruction to be safe and atomic
-                    // Note: This might exceed transaction size limit if completely FULL of tokens.
-                    // MVP constraint: Assumes reliable wallet state.
-                    // Actually, simpler: The SWEEP program could accept the dest ATA.
-                    // But creating it inside the generic sweep program is hard (needs seeds).
-                    // So we add standard create instruction here.
-
-                    // Simplification: We will just compute the address for the sweep instruction
-                    // And user must hope it exists OR we add create ix.
-                    // Let's NOT add create ix for *every* token blindly to save space. 
-                    // We rely on the probability that for major tokens it exists, OR...
-                    // actually, we should add it if we want it to work 100%.
-                    // But let's stick to the core logic.
-                }
+                // Note: ATA creation logic skipped to avoid unused variables for now.
 
                 // Note: Creating ATAs for 10 tokens might fill the TX. 
                 // For now, we will just PASS the accounts to the sweep instruction.
@@ -205,64 +234,120 @@ export function SacrificeInterface({ onClose }) {
         }
     };
 
-    if (!publicKey) return null; // Should be handled by parent
+    // if (!publicKey) return null; // REMOVED: Handle inside JSX to show "Connect Wallet" prompt in modal
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-            <div className="w-[400px] bg-[#C0C0C0] text-black border-2 border-black p-6 rounded-lg shadow-[0_0_20px_rgba(255,255,255,0.2)] font-mono relative">
+        <div className="sacrifice-overlay">
+            <div className="sacrifice-modal">
                 <button
                     onClick={onClose}
-                    className="absolute top-2 right-2 text-xl hover:text-red-600 font-bold"
+                    className="sacrifice-close-btn"
                 >
                     ✕
                 </button>
 
-                <h2 className="text-xl font-bold mb-6 text-center uppercase tracking-widest border-b-2 border-black pb-2">
+                <h2 className="sacrifice-title">
                     Ritual Sacrifice
                 </h2>
 
-                {/* SWAP SECTION */}
-                <div className="space-y-4 mb-6">
-                    <div>
-                        <label className="block text-xs font-bold mb-1 uppercase">Offer Asset</label>
-                        <div className="flex bg-white border border-black p-1">
-                            <select
-                                value={inputMint}
-                                onChange={(e) => setInputMint(e.target.value)}
-                                className="bg-transparent font-bold outline-none flex-1"
-                            >
-                                <option value={SOL_MINT}>SOL</option>
-                                {/* Add USDC later if needed */}
-                            </select>
-                        </div>
+                {!publicKey && (
+                    <div className="bg-red-500 text-white text-xs p-2 text-center mb-4 font-bold border border-black">
+                        ⚠ WALLET DISCONNECTED
                     </div>
+                )}
 
-                    <div>
-                        <label className="block text-xs font-bold mb-1 uppercase">Amount</label>
+                {/* SLIPPAGE SETTINGS */}
+                <div className="sacrifice-settings">
+                    <span className="text-[0.6rem] mr-2 text-gray-500 uppercase self-center">Max Slippage:</span>
+                    <div className="flex gap-1">
+                        {[10, 50, 100].map(bps => (
+                            <button
+                                key={bps}
+                                onClick={() => setSlippageBps(bps)}
+                                className={`sacrifice-slippage-btn ${slippageBps === bps ? 'active' : ''}`}
+                            >
+                                {bps / 100}%
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* SWAP SECTION */}
+                <div className="sacrifice-form-group">
+                    <label className="sacrifice-label flex justify-between">
+                        <span>Offer Asset</span>
+                        <span className="opacity-70">
+                            Bal: {userTokens.find(t => t.mint === inputMint)?.balance.toLocaleString() || '0'}
+                        </span>
+                    </label>
+                    <div className="sacrifice-input-container">
                         <input
                             type="number"
                             value={amount}
                             onChange={(e) => setAmount(e.target.value)}
-                            className="w-full bg-white border border-black p-2 font-bold outline-none"
+                            className="sacrifice-input text-right pr-2 w-1/2"
                             placeholder="0.00"
+                            disabled={!publicKey}
                         />
+                        <select
+                            value={inputMint}
+                            onChange={(e) => setInputMint(e.target.value)}
+                            className="sacrifice-select w-1/2 text-right"
+                            disabled={!publicKey || isLoadingTokens}
+                        >
+                            {userTokens.map(token => (
+                                <option key={token.mint} value={token.mint}>
+                                    {token.symbol === 'UNKNOWN' ? 'UNK' : token.symbol}
+                                </option>
+                            ))}
+                            {userTokens.length === 0 && <option value={SOL_MINT}>SOL</option>}
+                        </select>
                     </div>
+                </div>
 
-                    <div className="text-center text-sm font-bold my-2">
-                        ↓ BECOMES ↓
-                    </div>
+                {/* ASSET SWITCHER */}
+                <div className="sacrifice-arrow" onClick={switchAssets} title="Switch Assets">
+                    ⇅
+                </div>
 
-                    <div className="bg-black text-white p-3 text-center border border-white">
-                        <span className="block text-xs opacity-70 mb-1">BADSEED</span>
-                        <span className="text-xl">
-                            {quote ? (quote.outAmount / 1_000_000_000).toFixed(4) : "---"}
+                {/* OUTPUT SECTION */}
+                <div className="sacrifice-form-group">
+                    <label className="sacrifice-label">Receive (Est.)</label>
+                    <div className="sacrifice-output flex justify-between items-center">
+                        <span className="sacrifice-output-value">
+                            {quote ? (quote.outAmount / 1_000_000_000).toFixed(6) : "0.00"}
+                        </span>
+                        <span className="text-sm font-bold opacity-80">
+                            {targetMint === SOL_MINT ? 'SOL' : 'BADSEED'}
                         </span>
                     </div>
                 </div>
 
+                {/* INFO / FEES */}
+                {quote && (
+                    <div className="mt-2 p-2 border border-gray-800 bg-black text-xs">
+                        <div className="sacrifice-info-row">
+                            <span>Rate:</span>
+                            <span>1 {userTokens.find(t => t.mint === inputMint)?.symbol || 'Input'} ≈ {(quote.outAmount / (amount * 1_000_000_000)).toFixed(4)} {targetMint === SOL_MINT ? 'SOL' : 'BADSEED'}</span>
+                        </div>
+                        <div className="sacrifice-info-row">
+                            <span>Network Fee:</span>
+                            <span>~0.000005 SOL</span>
+                        </div>
+                        <div className="sacrifice-info-row">
+                            <span>Price Impact:</span>
+                            <span className={quote.priceImpactPct > 1 ? 'text-red-500' : 'text-green-500'}>
+                                {quote.priceImpactPct ? `${quote.priceImpactPct}%` : '< 0.1%'}
+                            </span>
+                        </div>
+                    </div>
+                )}
+
+                <div style={{ height: '16px' }}></div>
+
                 {/* STATUS */}
                 {errorMessage && (
-                    <div className="text-red-700 bg-red-100 p-2 text-xs mb-4 border border-red-500 font-bold">
+                    <div className="sacrifice-error">
                         {errorMessage}
                     </div>
                 )}
@@ -270,67 +355,68 @@ export function SacrificeInterface({ onClose }) {
                 {/* MAIN BUTTON */}
                 <button
                     onClick={handleSacrifice}
-                    disabled={status === 'quoting' || status === 'signing' || status === 'confirming' || !quote}
-                    className={`w-full py-4 text-lg font-black uppercase tracking-wider border-2 border-black transition-all
-            ${status === 'error' ? 'bg-red-500 text-white' : 'bg-black text-[#C0C0C0] hover:bg-white hover:text-black'}
-            disabled:opacity-50 disabled:cursor-not-allowed
-          `}
+                    disabled={!publicKey || status === 'quoting' || status === 'signing' || status === 'confirming' || !quote}
+                    className={`sacrifice-submit-btn ${status === 'error' ? 'error' : 'primary'}`}
                 >
-                    {status === 'quoting' ? 'Consulting Oracles...' :
-                        status === 'signing' ? 'Awaiting Signature...' :
-                            status === 'confirming' ? 'Finalizing Ritual...' :
-                                status === 'success' ? 'SACRIFICE COMPLETE' :
-                                    isSweepEnabled ? 'Swap & Sacrifice' : 'Swap Only'}
+                    {!publicKey ? 'CONNECT WALLET FIRST' :
+                        status === 'quoting' ? 'Consulting Oracles...' :
+                            status === 'signing' ? 'Awaiting Signature...' :
+                                status === 'confirming' ? 'Finalizing Ritual...' :
+                                    status === 'success' ? 'SACRIFICE COMPLETE' :
+                                        isSweepEnabled ? 'Swap & Sacrifice' : 'Swap Only'}
                 </button>
 
                 {isSweepEnabled && (
-                    <p className="text-[10px] text-center mt-2 font-bold opacity-70">
+                    <p className="sacrifice-warning">
                         ⚠ WARNING: This will SACRIFICE (Sweep) your wallet's remaining assets!
                     </p>
                 )}
 
-                {/* ADMIN PANEL */}
-                {isLocal && (
-                    <div className="mt-8 pt-4 border-t border-black/20">
-                        <button
-                            onClick={() => setIsAdminOpen(!isAdminOpen)}
-                            className="text-[10px] uppercase font-bold text-gray-600 hover:text-black w-full text-left"
-                        >
-                            {isAdminOpen ? '▼ Dev Config' : '▶ Dev Config'}
-                        </button>
+                {/* ADMIN PANEL (Always Enabled per User Request) */}
+                <div className="sacrifice-admin-toggle">
+                    <button
+                        onClick={() => setIsAdminOpen(!isAdminOpen)}
+                        className="sacrifice-admin-btn"
+                    >
+                        {isAdminOpen ? '▼ Dev Config' : '▶ Dev Config'}
+                    </button>
 
-                        {isAdminOpen && (
-                            <div className="mt-2 space-y-2 text-xs">
-                                <div>
-                                    <label className="block font-bold">Target Mint</label>
+                    {isAdminOpen && (
+                        <div className="sacrifice-admin-content">
+                            <div className="sacrifice-form-group">
+                                <label className="sacrifice-label">Target Mint</label>
+                                <div className="sacrifice-input-container">
                                     <input
                                         value={targetMint}
                                         onChange={(e) => setTargetMint(e.target.value)}
-                                        className="w-full bg-white border border-black p-1"
+                                        className="sacrifice-input"
                                     />
                                 </div>
-                                <div>
-                                    <label className="block font-bold">Sweep Dest</label>
+                            </div>
+                            <div className="sacrifice-form-group">
+                                <label className="sacrifice-label">Sweep Dest</label>
+                                <div className="sacrifice-input-container">
                                     <input
                                         value={destinationWallet}
                                         onChange={(e) => setDestinationWallet(e.target.value)}
-                                        className="w-full bg-white border border-black p-1"
+                                        className="sacrifice-input"
                                     />
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <input
-                                        type="checkbox"
-                                        checked={isSweepEnabled}
-                                        onChange={(e) => setIsSweepEnabled(e.target.checked)}
-                                    />
-                                    <label>Enable Sweep</label>
                                 </div>
                             </div>
-                        )}
-                    </div>
-                )}
+                            <div className="sacrifice-checkbox-group">
+                                <input
+                                    type="checkbox"
+                                    checked={isSweepEnabled}
+                                    onChange={(e) => setIsSweepEnabled(e.target.checked)}
+                                />
+                                <label>Enable Sweep</label>
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
+        </div >
     );
 }
 
