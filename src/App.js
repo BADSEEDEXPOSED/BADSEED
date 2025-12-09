@@ -277,17 +277,10 @@ function App() {
   const fetchSentiment = async () => {
     try {
       const response = await fetch('/.netlify/functions/sentiment-get');
-      if (response.ok) {
-        // Only parse if OK and actually JSON
-        const contentType = response.headers.get("content-type");
-        if (contentType && contentType.includes("application/json")) {
-          const data = await response.json();
-          setSentimentData(data);
-        }
-      }
+      const data = await response.json();
+      setSentimentData(data);
     } catch (error) {
-      // Silent fail locally
-      // console.error('Failed to fetch sentiment:', error);
+      console.error('Failed to fetch sentiment:', error);
     }
   };
 
@@ -295,16 +288,10 @@ function App() {
   const fetchProphecy = async () => {
     try {
       const response = await fetch('/.netlify/functions/prophecy-get');
-      if (response.ok) {
-        const contentType = response.headers.get("content-type");
-        if (contentType && contentType.includes("application/json")) {
-          const data = await response.json();
-          setProphecy(data);
-        }
-      }
+      const data = await response.json();
+      setProphecy(data);
     } catch (error) {
-      // Silent fail locally
-      // console.error('Failed to fetch prophecy:', error);
+      console.error('Failed to fetch prophecy:', error);
     }
   };
 
@@ -820,30 +807,7 @@ function App() {
       {showDashboard && (
         <button
           onClick={() => setShowSacrificeModal(true)}
-          style={{
-            position: 'fixed',
-            top: '20px',
-            left: '20px',
-            zIndex: 9999,
-            cursor: 'pointer',
-            background: 'rgba(0, 0, 0, 0.6)',
-            border: '2px solid rgba(255, 255, 255, 0.2)',
-            color: 'white',
-            padding: '10px 20px',
-            fontFamily: 'monospace',
-            textTransform: 'uppercase',
-            letterSpacing: '0.2em',
-            backdropFilter: 'blur(4px)',
-            transition: 'all 0.3s ease'
-          }}
-          onMouseOver={(e) => {
-            e.currentTarget.style.borderColor = 'white';
-            e.currentTarget.style.color = 'white';
-          }}
-          onMouseOut={(e) => {
-            e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
-            e.currentTarget.style.color = 'rgba(255, 255, 255, 0.5)';
-          }}
+          className="fixed top-4 left-4 z-40 bg-transparent border-2 border-white/20 hover:border-white text-white/50 hover:text-white px-4 py-2 font-mono text-xs uppercase tracking-[0.2em] transition-all backdrop-blur-sm"
         >
           Sacrifice
         </button>

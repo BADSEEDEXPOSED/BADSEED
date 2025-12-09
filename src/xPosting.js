@@ -14,17 +14,10 @@ const API_BASE = "/.netlify/functions";
 const fetchQueue = async () => {
     try {
         const res = await fetch(`${API_BASE}/queue-get`);
-        if (!res.ok) {
-            // Silence error and return empty queue
-            return [];
-        }
-        const contentType = res.headers.get("content-type");
-        if (contentType && contentType.includes("application/json")) {
-            return await res.json();
-        }
-        return [];
+        if (!res.ok) throw new Error(`Queue fetch failed: ${res.status}`);
+        return await res.json();
     } catch (e) {
-        // console.error("Failed to fetch queue:", e);
+        console.error("Failed to fetch queue:", e);
         return [];
     }
 };
