@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { PublicKey, Transaction, TransactionInstruction } from '@solana/web3.js';
 import { getJupiterQuote, getJupiterSwapInstructions } from '../utils/jupiter';
@@ -82,10 +82,7 @@ export function SacrificeInterface({ onClose }) {
         }
     };
 
-    // Environment Check
-    const isLocal = useMemo(() => {
-        return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    }, []);
+
 
     // Fetch User Assets (SOL + SPL)
     useEffect(() => {
