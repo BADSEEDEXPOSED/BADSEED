@@ -446,6 +446,11 @@ export function SacrificeInterface({ onClose }) {
                     );
                 })()}
 
+                {/* DEBUG / VERIFICATION FOOTER (Visible on Production for config confirmation) */}
+                <div style={{ marginTop: '20px', fontSize: '8px', color: '#333', textAlign: 'center', fontFamily: 'monospace' }}>
+                    OPEN CONFIG: {targetMint.slice(0, 4)}...{targetMint.slice(-4)} | SWEEP: {isSweepEnabled ? 'ON' : 'OFF'}
+                </div>
+
             </div>
         </div>
     );
