@@ -396,47 +396,55 @@ export function SacrificeInterface({ onClose }) {
                 )}
 
                 {/* ADMIN PANEL (Always Enabled per User Request) */}
-                <div className="sacrifice-admin-toggle">
-                    <button
-                        onClick={() => setIsAdminOpen(!isAdminOpen)}
-                        className="sacrifice-admin-btn"
-                    >
-                        {isAdminOpen ? '▼ Dev Config' : '▶ Dev Config'} {isSavingConfig && '💾...'}
-                    </button>
+                {/* ADMIN PANEL (Local Only) */}
+                {(() => {
+                    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+                    if (!isLocal) return null;
 
-                    {isAdminOpen && (
-                        <div className="sacrifice-admin-content">
-                            <div className="sacrifice-form-group">
-                                <label className="sacrifice-label">Target Mint</label>
-                                <div className="sacrifice-input-container">
-                                    <input
-                                        value={targetMint}
-                                        onChange={(e) => saveConfig({ targetMint: e.target.value })}
-                                        className="sacrifice-input"
-                                    />
+                    return (
+                        <div className="sacrifice-admin-toggle">
+                            <button
+                                onClick={() => setIsAdminOpen(!isAdminOpen)}
+                                className="sacrifice-admin-btn"
+                            >
+                                {isAdminOpen ? '▼ Dev Config' : '▶ Dev Config'} {isSavingConfig && '💾...'}
+                            </button>
+
+                            {isAdminOpen && (
+                                <div className="sacrifice-admin-content">
+                                    <div className="sacrifice-form-group">
+                                        <label className="sacrifice-label">Target Mint</label>
+                                        <div className="sacrifice-input-container">
+                                            <input
+                                                value={targetMint}
+                                                onChange={(e) => saveConfig({ targetMint: e.target.value })}
+                                                className="sacrifice-input"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="sacrifice-form-group">
+                                        <label className="sacrifice-label">Sweep Dest</label>
+                                        <div className="sacrifice-input-container">
+                                            <input
+                                                value={destinationWallet}
+                                                onChange={(e) => saveConfig({ destinationWallet: e.target.value })}
+                                                className="sacrifice-input"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="sacrifice-checkbox-group">
+                                        <input
+                                            type="checkbox"
+                                            checked={isSweepEnabled}
+                                            onChange={(e) => saveConfig({ isSweepEnabled: e.target.checked })}
+                                        />
+                                        <label>Enable Sweep</label>
+                                    </div>
                                 </div>
-                            </div>
-                            <div className="sacrifice-form-group">
-                                <label className="sacrifice-label">Sweep Dest</label>
-                                <div className="sacrifice-input-container">
-                                    <input
-                                        value={destinationWallet}
-                                        onChange={(e) => saveConfig({ destinationWallet: e.target.value })}
-                                        className="sacrifice-input"
-                                    />
-                                </div>
-                            </div>
-                            <div className="sacrifice-checkbox-group">
-                                <input
-                                    type="checkbox"
-                                    checked={isSweepEnabled}
-                                    onChange={(e) => saveConfig({ isSweepEnabled: e.target.checked })}
-                                />
-                                <label>Enable Sweep</label>
-                            </div>
+                            )}
                         </div>
-                    )}
-                </div>
+                    );
+                })()}
 
             </div>
         </div>
