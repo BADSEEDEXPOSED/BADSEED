@@ -19,6 +19,13 @@ const fetchTokenMap = async () => {
         // Use Proxy to bypass client-side blocks
         const res = await fetch('/.netlify/functions/jupiter-proxy?endpoint=strict-list');
         const data = await res.json();
+
+        // Safety Check: Ensure data is an array
+        if (!Array.isArray(data)) {
+            console.error("Token Map fetch returned non-array:", data);
+            return new Map(); // Return empty map fallback
+        }
+
         tokenMapCache = new Map(data.map(t => [t.address, t]));
         return tokenMapCache;
     } catch (err) {

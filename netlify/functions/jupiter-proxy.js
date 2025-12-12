@@ -1,5 +1,4 @@
-const fetch = require('node-fetch'); // Using v2 for CJS compatibility
-// Native fetch in Lambda can be finicky with DNS. node-fetch v2 is battle-tested.
+const axios = require('axios');
 
 exports.handler = async (event, context) => {
     // Enable CORS
@@ -18,28 +17,32 @@ exports.handler = async (event, context) => {
         const body = event.body ? JSON.parse(event.body) : null;
 
         let targetUrl = '';
-        let method = event.httpMethod;
-        let options = {
+        let method = event.httpMethod; // 'GET' or 'POST'
+
+        // Configuration for Axios
+        let axiosConfig = {
             method: method,
             headers: {
                 'Content-Type': 'application/json',
-                'Accept': 'application/json'
+                'Accept': 'application/json, text/plain, */*'
+            },
+            validateStatus: function (status) {
+                return status < 500; // Resolve only if status is less than 500
             }
         };
 
-        // endpoint param determines route: 'strict-list', 'quote', 'swap'
+        // Endpoint routing
         if (endpoint === 'strict-list') {
             targetUrl = 'https://token.jup.ag/strict';
+            axiosConfig.method = 'GET';
         } else if (endpoint === 'quote') {
-            // Reconstruct query string for quote
             const query = new URLSearchParams(params).toString();
             targetUrl = `https://quote-api.jup.ag/v6/quote?${query}`;
+            axiosConfig.method = 'GET';
         } else if (endpoint === 'swap') {
             targetUrl = 'https://quote-api.jup.ag/v6/swap';
-            options.body = JSON.stringify(body);
-            // Swap instructions usually POST
-            method = 'POST';
-            options.method = 'POST';
+            axiosConfig.method = 'POST';
+            axiosConfig.data = body;
         } else {
             return {
                 statusCode: 400,
@@ -48,32 +51,40 @@ exports.handler = async (event, context) => {
             };
         }
 
-        console.log(`Proxying to: ${targetUrl}`);
+        axiosConfig.url = targetUrl;
 
-        const response = await fetch(targetUrl, options);
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error(`Jupiter API Error (${response.status}):`, errorText);
-            return {
-                statusCode: response.status,
-                headers,
-                body: errorText
-            };
-        }
+        console.log(`[Proxy] Forwarding ${method} to: ${targetUrl}`);
 
-        const data = await response.json();
+        const response = await axios(axiosConfig);
+
         return {
-            statusCode: 200,
+            statusCode: response.status,
             headers,
-            body: JSON.stringify(data)
+            body: JSON.stringify(response.data)
         };
 
     } catch (error) {
-        console.error("Proxy Error:", error);
-        return {
-            statusCode: 500,
-            headers,
-            body: JSON.stringify({ error: error.message })
-        };
+        console.error("[Proxy] Axios Error:", error.message);
+        if (error.response) {
+            console.error("[Proxy] Response Data:", error.response.data);
+            return {
+                statusCode: error.response.status,
+                headers,
+                body: JSON.stringify({ error: error.message, details: error.response.data })
+            };
+        } else if (error.request) {
+            console.error("[Proxy] No Response Received");
+            return {
+                statusCode: 504,
+                headers,
+                body: JSON.stringify({ error: "Gateway Timeout: No response from Jupiter API", details: error.message })
+            };
+        } else {
+            return {
+                statusCode: 500,
+                headers,
+                body: JSON.stringify({ error: "Internal Proxy Error", details: error.message })
+            };
+        }
     }
 };
