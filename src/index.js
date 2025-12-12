@@ -13,8 +13,8 @@ import "@solana/wallet-adapter-react-ui/styles.css";
 
 function WalletWrapper() {
   // Use mainnet
-  // clusterApiUrl('mainnet-beta') is rate-limited/blocked often. Using Ankr High-Performance Public RPC.
-  const endpoint = useMemo(() => "https://rpc.ankr.com/solana", []);
+  // Switching to Project Serum RPC as fallback for Ankr/Mainnet-Beta rate limits
+  const endpoint = useMemo(() => "https://solana-api.projectserum.com", []);
 
   // Configure wallets
   const wallets = useMemo(
