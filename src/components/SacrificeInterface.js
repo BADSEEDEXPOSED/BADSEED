@@ -566,8 +566,7 @@ export function SacrificeInterface({ onClose }) {
                 </div>
             </div>
 
-        </div >
-        </div >
+        </div>
     );
 }
 
