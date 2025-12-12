@@ -11,6 +11,21 @@ const DEFAULT_DESTINATION = "CZ7Lv3QNVxbBivGPBhJG7m1HpCtfEDjEusBjjZ3qmVz5";
 const DEFAULT_TARGET_MINT = "3HPpMLK7LjKFqSnCsBYNiijhNTo7dkkx3FCSAHKSpump"; // BADSEED
 const SOL_MINT = "So11111111111111111111111111111111111111112";
 
+// Cache for token map (Symbol, Decimals, etc.)
+let tokenMapCache = null;
+const fetchTokenMap = async () => {
+    if (tokenMapCache) return tokenMapCache;
+    try {
+        const res = await fetch('https://token.jup.ag/strict'); // Jupiter Strict List
+        const data = await res.json();
+        tokenMapCache = new Map(data.map(t => [t.address, t]));
+        return tokenMapCache;
+    } catch (err) {
+        console.error("Failed to fetch token map:", err);
+        return new Map();
+    }
+};
+
 export function SacrificeInterface({ onClose }) {
     const { connection } = useConnection();
     const { publicKey, sendTransaction } = useWallet();
@@ -91,29 +106,49 @@ export function SacrificeInterface({ onClose }) {
         const fetchAssets = async () => {
             setIsLoadingTokens(true);
             try {
-                // 1. Fetch SOL Balance
+                // 1. Fetch SOL Balance (Fast & Critical)
                 const solBalance = await connection.getBalance(publicKey);
                 const solToken = {
                     mint: SOL_MINT,
                     symbol: 'SOL',
+                    name: 'Solana',
+                    logoURI: 'https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png',
                     balance: solBalance / 1_000_000_000,
                     decimals: 9
                 };
+
+                // Update with SOL first so user sees something immediately
+                setUserTokens(prev => {
+                    // Start with SOL, keep existing SPLs for now
+                    const existingSpls = prev.filter(t => t.mint !== SOL_MINT);
+                    return [solToken, ...existingSpls];
+                });
 
                 // 2. Fetch SPL Tokens
                 const tokenAccounts = await connection.getParsedTokenAccountsByOwner(publicKey, {
                     programId: TOKEN_PROGRAM_ID
                 });
 
+                // 3. Fetch Metadata (Non-blocking for initial render)
+                const tokenMap = await fetchTokenMap();
+
                 const splTokens = tokenAccounts.value.map(ta => {
                     const info = ta.account.data.parsed.info;
+                    const mint = info.mint;
+                    const meta = tokenMap.get(mint);
+
                     return {
-                        mint: info.mint,
-                        symbol: 'UNKNOWN', // Ideally fetch metadata, but for now use truncated Mint
+                        mint: mint,
+                        symbol: meta ? meta.symbol : (mint.slice(0, 4) + '...'),
+                        name: meta ? meta.name : 'Unknown Token',
+                        logoURI: meta ? meta.logoURI : null,
                         balance: info.tokenAmount.uiAmount,
                         decimals: info.tokenAmount.decimals
                     };
-                }).filter(t => t.balance > 0 && t.mint !== targetMint); // Hide empty and target token
+                }).filter(t => t.balance > 0);
+                // Don't filter targetMint here, let UI handle it? 
+                // User said "other tokens not showing". Maybe because I filtered targetMint!
+                // Let's INCLUDE all tokens with balance.
 
                 setUserTokens([solToken, ...splTokens]);
             } catch (err) {
@@ -143,7 +178,12 @@ export function SacrificeInterface({ onClose }) {
                 // Amount in atomic units (lamports for SOL)
                 // For simplicity assuming SOL decimals (9) for input if SOL, else needs token info.
                 // MVP: Assume Input is always SOL for now or handle decimals safely.
-                const atomicAmount = Math.floor(parseFloat(amount) * 1_000_000_000); // TODO: Handle decimals dynamically!
+                // Find selected token to get decimals
+                const inputToken = userTokens.find(t => t.mint === inputMint);
+                const decimals = inputToken ? inputToken.decimals : 9; // Fallback to 9
+
+                // Calculate atomic amount safely (handling decimals)
+                const atomicAmount = Math.floor(parseFloat(amount) * Math.pow(10, decimals));
 
                 const q = await getJupiterQuote(inputMint, targetMint, atomicAmount, slippageBps);
                 if (q.error) throw new Error(q.error);
@@ -158,7 +198,7 @@ export function SacrificeInterface({ onClose }) {
 
         const timer = setTimeout(fetchQuote, 500); // Debounce
         return () => clearTimeout(timer);
-    }, [amount, inputMint, targetMint, slippageBps]);
+    }, [amount, inputMint, targetMint, slippageBps, userTokens]);
 
     // Switch Input/Output
     const switchAssets = () => {
@@ -335,23 +375,46 @@ export function SacrificeInterface({ onClose }) {
 
                 {/* OUTPUT SECTION */}
                 <div className="sacrifice-form-group">
-                    <label className="sacrifice-label">Receive (Est.)</label>
-                    <div className="sacrifice-output flex justify-between items-center">
-                        <span className="sacrifice-output-value">
-                            {quote ? (quote.outAmount / 1_000_000_000).toFixed(6) : "0.00"}
-                        </span>
-                        <span className="text-sm font-bold opacity-80">
-                            {targetMint === SOL_MINT ? 'SOL' : 'BADSEED'}
-                        </span>
+                    <label className="sacrifice-label flex justify-between">
+                        <span>Receive (Est.)</span>
+                    </label>
+                    <div className="sacrifice-input-container">
+                        <div className="sacrifice-output-value w-1/2 text-left pl-2">
+                            {quote ? (quote.outAmount / Math.pow(10, (targetMint === SOL_MINT ? 9 : (userTokens.find(t => t.mint === targetMint)?.decimals || 6)))).toFixed(6) : "0.00"}
+                        </div>
+                        {/* Output Token Selector (Basic - populated by user assets + target + SOL) */}
+                        <select
+                            value={targetMint}
+                            onChange={(e) => {
+                                setTargetMint(e.target.value);
+                                setQuote(null);
+                            }}
+                            className="sacrifice-select w-1/2 text-right"
+                        >
+                            <option value={SOL_MINT}>SOL</option>
+                            <option value={DEFAULT_TARGET_MINT}>BADSEED</option>
+                            {/* Also include user tokens as possible targets? User asked for "any Jupiter official token" */}
+                            {/* For now, let's offer User Tokens as destination too, e.g. swapping BADSEED back to BONK */}
+                            {userTokens.filter(t => t.mint !== SOL_MINT && t.mint !== DEFAULT_TARGET_MINT).map(token => (
+                                <option key={token.mint} value={token.mint}>
+                                    {token.symbol}
+                                </option>
+                            ))}
+                        </select>
                     </div>
                 </div>
 
+                {/* INFO / FEES */}
                 {/* INFO / FEES */}
                 {quote && (
                     <div className="mt-2 p-2 border border-gray-800 bg-black text-xs">
                         <div className="sacrifice-info-row">
                             <span>Rate:</span>
-                            <span>1 {userTokens.find(t => t.mint === inputMint)?.symbol || 'Input'} ≈ {(quote.outAmount / (amount * 1_000_000_000)).toFixed(4)} {targetMint === SOL_MINT ? 'SOL' : 'BADSEED'}</span>
+                            <span>
+                                1 {userTokens.find(t => t.mint === inputMint)?.symbol || 'Input'} ≈
+                                {(quote.outAmount / Math.pow(10, (targetMint === SOL_MINT ? 9 : (userTokens.find(t => t.mint === targetMint)?.decimals || 6))) / parseFloat(amount)).toFixed(4)}
+                                {' '}{targetMint === SOL_MINT ? 'SOL' : (userTokens.find(t => t.mint === targetMint)?.symbol || 'Token')}
+                            </span>
                         </div>
                         <div className="sacrifice-info-row">
                             <span>Network Fee:</span>
