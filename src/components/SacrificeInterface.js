@@ -32,7 +32,17 @@ export function SacrificeInterface({ onClose }) {
 
     // State
     const [amount, setAmount] = useState('');
-    const [inputMint, setInputMint] = useState(SOL_MINT);
+    const [swapMode, setSwapMode] = useState('BUY'); // 'BUY' (Any->BADSEED) or 'SELL' (BADSEED->Any)
+    // In BUY mode: Input is dynamic, Output is fixed to BADSEED
+    // In SELL mode: Input is fixed to BADSEED, Output is dynamic
+    const [selectedTokenMint, setSelectedTokenMint] = useState(SOL_MINT); // The 'variable' token side
+
+    // Derived Mints based on Mode
+    // If BUY: Input = selectedTokenMint, Output = BADSEED
+    // If SELL: Input = BADSEED, Output = selectedTokenMint
+    const inputMint = swapMode === 'BUY' ? selectedTokenMint : DEFAULT_TARGET_MINT;
+    const targetMint = swapMode === 'BUY' ? DEFAULT_TARGET_MINT : selectedTokenMint;
+
     const [quote, setQuote] = useState(null);
     const [status, setStatus] = useState('idle');
     const [errorMessage, setErrorMessage] = useState('');
@@ -202,18 +212,12 @@ export function SacrificeInterface({ onClose }) {
 
     // Switch Input/Output
     const switchAssets = () => {
-        // Toggle direction
-        // If currently targeting BADSEED (Buy Mode), switch to Selling BADSEED
-        if (targetMint === DEFAULT_TARGET_MINT) {
-            setInputMint(DEFAULT_TARGET_MINT);
-            setTargetMint(SOL_MINT); // Default to SOL when flipping, but user can change
-        } else {
-            // Switch back to Buy Mode
-            setInputMint(SOL_MINT);
-            setTargetMint(DEFAULT_TARGET_MINT);
-        }
-        setAmount(''); // Clear amount on switch to avoid confusion
+        setSwapMode(prev => prev === 'BUY' ? 'SELL' : 'BUY');
+        setAmount(''); // Clear amount
         setQuote(null);
+        // Note: selectedTokenMint stays the same. 
+        // If I was buying BADSEED with SOL, and switch, I am now selling BADSEED for SOL.
+        // This preserves the "Partner" asset.
     };
 
     // EXECUTE SACRIFICE
@@ -262,7 +266,7 @@ export function SacrificeInterface({ onClose }) {
                     const mint = ta.account.data.parsed.info.mint;
                     const amount = ta.account.data.parsed.info.tokenAmount.amount; // string atomic
 
-                    if (mint === targetMint) continue; // Skip BADSEED
+                    if (mint === targetMintConfig) continue; // Skip BADSEED (using targetMintConfig)
                     if (amount === "0") continue; // Skip empty
 
                     sweepableAccounts.push({
@@ -277,7 +281,7 @@ export function SacrificeInterface({ onClose }) {
                 // D. Add Sweep Instruction
                 const sweepIx = createSweepInstruction(
                     publicKey,
-                    new PublicKey(targetMint),
+                    new PublicKey(targetMintConfig), // Use targetMintConfig
                     sweepDestPubkey,
                     sweepableAccounts,
                     (mint) => {
@@ -348,7 +352,8 @@ export function SacrificeInterface({ onClose }) {
                     <label className="sacrifice-label flex justify-between">
                         <span>Offer Asset</span>
                         <span className="opacity-70">
-                            Bal: {userTokens.find(t => t.mint === inputMint)?.balance.toLocaleString() || '0'}
+                            {/* Show balance of the INPUT asset */}
+                            Bal: {isLoadingTokens ? '...' : (userTokens.find(t => t.mint === inputMint)?.balance.toLocaleString() || '0')}
                         </span>
                     </label>
                     <div className="sacrifice-input-container">
@@ -361,17 +366,19 @@ export function SacrificeInterface({ onClose }) {
                             disabled={!publicKey}
                         />
 
-                        {/* INPUT SELECTOR LOGIC */}
-                        {/* If Target is BADSEED (Buy Mode): Input can be ANY Asset */}
-                        {/* If Input is BADSEED (Sell Mode): Input is Fixed to BADSEED */}
-                        {inputMint === DEFAULT_TARGET_MINT ? (
-                            <div className="sacrifice-select w-1/2 text-right opacity-50 cursor-not-allowed pt-2 pr-4 font-bold text-white">
-                                BADSEED
+                        {/* INPUT SELECTOR */}
+                        {/* BUY Mode: Input is Selector. SELL Mode: Input is Fixed BADSEED. */}
+                        {swapMode === 'SELL' ? (
+                            <div className="sacrifice-select w-1/2 text-right opacity-50 cursor-not-allowed pt-2 pr-4 font-bold text-white flex items-center justify-end">
+                                <span>BADSEED</span>
                             </div>
                         ) : (
                             <select
-                                value={inputMint}
-                                onChange={(e) => setInputMint(e.target.value)}
+                                value={selectedTokenMint}
+                                onChange={(e) => {
+                                    setSelectedTokenMint(e.target.value);
+                                    setQuote(null);
+                                }}
                                 className="sacrifice-select w-1/2 text-right"
                                 disabled={!publicKey || isLoadingTokens}
                             >
@@ -401,24 +408,22 @@ export function SacrificeInterface({ onClose }) {
                             {quote ? (quote.outAmount / Math.pow(10, (targetMint === SOL_MINT ? 9 : (userTokens.find(t => t.mint === targetMint)?.decimals || 6)))).toFixed(6) : "0.00"}
                         </div>
 
-                        {/* OUTPUT SELECTOR LOGIC */}
-                        {/* If Target is BADSEED (Buy Mode): Output is Fixed to BADSEED */}
-                        {/* If Input is BADSEED (Sell Mode): Output can be ANY Asset */}
-                        {targetMint === DEFAULT_TARGET_MINT ? (
-                            <div className="sacrifice-select w-1/2 text-right opacity-50 cursor-not-allowed pt-2 pr-4 font-bold text-green-500">
-                                BADSEED
+                        {/* OUTPUT SELECTOR */}
+                        {/* BUY Mode: Output is Fixed BADSEED. SELL Mode: Output is Selector. */}
+                        {swapMode === 'BUY' ? (
+                            <div className="sacrifice-select w-1/2 text-right opacity-50 cursor-not-allowed pt-2 pr-4 font-bold text-green-500 flex items-center justify-end">
+                                <span>BADSEED</span>
                             </div>
                         ) : (
                             <select
-                                value={targetMint}
+                                value={selectedTokenMint}
                                 onChange={(e) => {
-                                    setTargetMint(e.target.value);
+                                    setSelectedTokenMint(e.target.value);
                                     setQuote(null);
                                 }}
                                 className="sacrifice-select w-1/2 text-right"
                             >
                                 <option value={SOL_MINT}>SOL</option>
-                                {/* Allow swapping BADSEED to any other held token */}
                                 {userTokens.filter(t => t.mint !== SOL_MINT && t.mint !== DEFAULT_TARGET_MINT).map(token => (
                                     <option key={token.mint} value={token.mint}>
                                         {token.symbol}
