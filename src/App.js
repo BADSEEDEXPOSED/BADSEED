@@ -248,6 +248,7 @@ function App() {
   // Logo pulse enhancement
   const [logoPulseEnhanced, setLogoPulseEnhanced] = useState(false);
   const [showSacrificeModal, setShowSacrificeModal] = useState(false);
+  const [isSacrificeVisible, setIsSacrificeVisible] = useState(true); // Default to true, update from config
 
   // Sentiment & Prophecy state
   const [sentimentData, setSentimentData] = useState(null);
@@ -803,8 +804,8 @@ function App() {
         <WalletMultiButton />
       </div>
 
-      {/* Sacrifice/Swap Button - Top Left, only visible in Dashboard */}
-      {showDashboard && (
+      {/* Sacrifice/Swap Button - Top Left, only visible in Dashboard AND (Local OR Enabled in Config) */}
+      {showDashboard && (isLocalEnvironment() || isSacrificeVisible) && (
         <button
           onClick={() => setShowSacrificeModal(true)}
           style={{

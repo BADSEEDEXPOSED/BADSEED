@@ -62,7 +62,7 @@ export function SacrificeInterface({ onClose }) {
     const [destinationWallet, setDestinationWallet] = useState(DEFAULT_DESTINATION);
     const [configTargetMint, setConfigTargetMint] = useState(DEFAULT_TARGET_MINT);
     const [isSweepEnabled, setIsSweepEnabled] = useState(true);
-    const [isSacrificeVisible, setIsSacrificeVisible] = useState(true); // New Toggle State
+    const [isSacrificeVisible, setIsSacrificeVisible] = useState(true); // New state for Production Toggle
     const [isSavingConfig, setIsSavingConfig] = useState(false);
 
     // Derived Mints based on Mode (Moved AFTER configTargetMint declaration!)
@@ -383,7 +383,7 @@ export function SacrificeInterface({ onClose }) {
                         {/* BUY Mode: Input is Selector. SELL Mode: Input is Fixed BADSEED. */}
                         {swapMode === 'SELL' ? (
                             <div className="sacrifice-select w-1/2 text-right opacity-50 cursor-not-allowed pt-2 pr-4 font-bold text-white flex items-center justify-end">
-                                <span>BADSEED ({configTargetMint.slice(0, 4)}...{configTargetMint.slice(-4)})</span>
+                                <span>BADSEED</span>
                             </div>
                         ) : (
                             <select
@@ -425,7 +425,7 @@ export function SacrificeInterface({ onClose }) {
                         {/* BUY Mode: Output is Fixed BADSEED. SELL Mode: Output is Selector. */}
                         {swapMode === 'BUY' ? (
                             <div className="sacrifice-select w-1/2 text-right opacity-50 cursor-not-allowed pt-2 pr-4 font-bold text-green-500 flex items-center justify-end">
-                                <span>BADSEED ({configTargetMint.slice(0, 4)}...{configTargetMint.slice(-4)})</span>
+                                <span>BADSEED <span className="text-gray-500 text-xs ml-1">({configTargetMint.slice(0, 4)}...{configTargetMint.slice(-4)})</span></span>
                             </div>
                         ) : (
                             <select
@@ -481,27 +481,19 @@ export function SacrificeInterface({ onClose }) {
                     </div>
                 )}
 
-                {/* MAIN BUTTON (Hidden on Production if Toggled Off) */}
-                {(() => {
-                    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-                    // Show if: Local (Admin) OR Visible Enabled
-                    if (!isLocal && !isSacrificeVisible) return null;
-
-                    return (
-                        <button
-                            onClick={handleSacrifice}
-                            disabled={!publicKey || status === 'quoting' || status === 'signing' || status === 'confirming' || !quote}
-                            className={`sacrifice-submit-btn ${status === 'error' ? 'error' : 'primary'}`}
-                        >
-                            {!publicKey ? 'CONNECT WALLET FIRST' :
-                                status === 'quoting' ? 'Consulting Oracles...' :
-                                    status === 'signing' ? 'Awaiting Signature...' :
-                                        status === 'confirming' ? 'Finalizing Ritual...' :
-                                            status === 'success' ? 'SACRIFICE COMPLETE' :
-                                                isSweepEnabled ? 'Swap & Sacrifice' : 'Swap Only'}
-                        </button>
-                    );
-                })()}
+                {/* MAIN BUTTON */}
+                <button
+                    onClick={handleSacrifice}
+                    disabled={!publicKey || status === 'quoting' || status === 'signing' || status === 'confirming' || !quote}
+                    className={`sacrifice-submit-btn ${status === 'error' ? 'error' : 'primary'}`}
+                >
+                    {!publicKey ? 'CONNECT WALLET FIRST' :
+                        status === 'quoting' ? 'Consulting Oracles...' :
+                            status === 'signing' ? 'Awaiting Signature...' :
+                                status === 'confirming' ? 'Finalizing Ritual...' :
+                                    status === 'success' ? 'SACRIFICE COMPLETE' :
+                                        isSweepEnabled ? 'Swap & Sacrifice' : 'Swap Only'}
+                </button>
 
                 {isSweepEnabled && (
                     <p className="sacrifice-warning">
@@ -546,12 +538,6 @@ export function SacrificeInterface({ onClose }) {
                                             />
                                         </div>
                                     </div>
-                                    <div className="sacrifice-checkbox-group">
-                                        <input
-                                            type="checkbox"
-                                            checked={isSweepEnabled}
-                                            onChange={(e) => saveConfig({ isSweepEnabled: e.target.checked })}
-                                        />
                                         <label>Enable Sweep</label>
                                     </div>
                                     <div className="sacrifice-checkbox-group">
@@ -560,18 +546,22 @@ export function SacrificeInterface({ onClose }) {
                                             checked={isSacrificeVisible}
                                             onChange={(e) => saveConfig({ isSacrificeVisible: e.target.checked })}
                                         />
-                                        <label>Show Sacrifice Button (Prod)</label>
+                                        <label>Production Visible</label>
                                     </div>
                                 </div>
-                            )}
+                    )
+                }
                         </div>
-                    );
+            );
                 })()}
 
-                {/* DEBUG FOOTER REMOVED PER USER REQUEST */}
-
+            <div style={{ marginTop: '20px', fontSize: '8px', color: '#333', textAlign: 'center', fontFamily: 'monospace' }}>
+                TARGET: {configTargetMint.slice(0, 4)}...{configTargetMint.slice(-4)} | SWEEP: {isSweepEnabled ? 'ON' : 'OFF'}
             </div>
         </div>
+
+            </div >
+        </div >
     );
 }
 
