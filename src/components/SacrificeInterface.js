@@ -202,10 +202,18 @@ export function SacrificeInterface({ onClose }) {
 
     // Switch Input/Output
     const switchAssets = () => {
-        const temp = inputMint;
-        setInputMint(targetMint);
-        setTargetMint(temp);
-        setQuote(null); // Reset quote
+        // Toggle direction
+        // If currently targeting BADSEED (Buy Mode), switch to Selling BADSEED
+        if (targetMint === DEFAULT_TARGET_MINT) {
+            setInputMint(DEFAULT_TARGET_MINT);
+            setTargetMint(SOL_MINT); // Default to SOL when flipping, but user can change
+        } else {
+            // Switch back to Buy Mode
+            setInputMint(SOL_MINT);
+            setTargetMint(DEFAULT_TARGET_MINT);
+        }
+        setAmount(''); // Clear amount on switch to avoid confusion
+        setQuote(null);
     };
 
     // EXECUTE SACRIFICE
@@ -335,7 +343,7 @@ export function SacrificeInterface({ onClose }) {
                     </div>
                 </div>
 
-                {/* SWAP SECTION */}
+                {/* SWAP SECTION (INPUT) */}
                 <div className="sacrifice-form-group">
                     <label className="sacrifice-label flex justify-between">
                         <span>Offer Asset</span>
@@ -352,24 +360,34 @@ export function SacrificeInterface({ onClose }) {
                             placeholder="0.00"
                             disabled={!publicKey}
                         />
-                        <select
-                            value={inputMint}
-                            onChange={(e) => setInputMint(e.target.value)}
-                            className="sacrifice-select w-1/2 text-right"
-                            disabled={!publicKey || isLoadingTokens}
-                        >
-                            {userTokens.map(token => (
-                                <option key={token.mint} value={token.mint}>
-                                    {token.symbol === 'UNKNOWN' ? 'UNK' : token.symbol}
-                                </option>
-                            ))}
-                            {userTokens.length === 0 && <option value={SOL_MINT}>SOL</option>}
-                        </select>
+
+                        {/* INPUT SELECTOR LOGIC */}
+                        {/* If Target is BADSEED (Buy Mode): Input can be ANY Asset */}
+                        {/* If Input is BADSEED (Sell Mode): Input is Fixed to BADSEED */}
+                        {inputMint === DEFAULT_TARGET_MINT ? (
+                            <div className="sacrifice-select w-1/2 text-right opacity-50 cursor-not-allowed pt-2 pr-4 font-bold text-white">
+                                BADSEED
+                            </div>
+                        ) : (
+                            <select
+                                value={inputMint}
+                                onChange={(e) => setInputMint(e.target.value)}
+                                className="sacrifice-select w-1/2 text-right"
+                                disabled={!publicKey || isLoadingTokens}
+                            >
+                                {userTokens.filter(t => t.mint !== DEFAULT_TARGET_MINT).map(token => (
+                                    <option key={token.mint} value={token.mint}>
+                                        {token.symbol === 'UNKNOWN' ? 'UNK' : token.symbol}
+                                    </option>
+                                ))}
+                                {userTokens.length === 0 && <option value={SOL_MINT}>SOL</option>}
+                            </select>
+                        )}
                     </div>
                 </div>
 
                 {/* ASSET SWITCHER */}
-                <div className="sacrifice-arrow" onClick={switchAssets} title="Switch Assets">
+                <div className="sacrifice-arrow" onClick={switchAssets} title="Switch Direction">
                     ⇅
                 </div>
 
@@ -382,25 +400,32 @@ export function SacrificeInterface({ onClose }) {
                         <div className="sacrifice-output-value w-1/2 text-left pl-2">
                             {quote ? (quote.outAmount / Math.pow(10, (targetMint === SOL_MINT ? 9 : (userTokens.find(t => t.mint === targetMint)?.decimals || 6)))).toFixed(6) : "0.00"}
                         </div>
-                        {/* Output Token Selector (Basic - populated by user assets + target + SOL) */}
-                        <select
-                            value={targetMint}
-                            onChange={(e) => {
-                                setTargetMint(e.target.value);
-                                setQuote(null);
-                            }}
-                            className="sacrifice-select w-1/2 text-right"
-                        >
-                            <option value={SOL_MINT}>SOL</option>
-                            <option value={DEFAULT_TARGET_MINT}>BADSEED</option>
-                            {/* Also include user tokens as possible targets? User asked for "any Jupiter official token" */}
-                            {/* For now, let's offer User Tokens as destination too, e.g. swapping BADSEED back to BONK */}
-                            {userTokens.filter(t => t.mint !== SOL_MINT && t.mint !== DEFAULT_TARGET_MINT).map(token => (
-                                <option key={token.mint} value={token.mint}>
-                                    {token.symbol}
-                                </option>
-                            ))}
-                        </select>
+
+                        {/* OUTPUT SELECTOR LOGIC */}
+                        {/* If Target is BADSEED (Buy Mode): Output is Fixed to BADSEED */}
+                        {/* If Input is BADSEED (Sell Mode): Output can be ANY Asset */}
+                        {targetMint === DEFAULT_TARGET_MINT ? (
+                            <div className="sacrifice-select w-1/2 text-right opacity-50 cursor-not-allowed pt-2 pr-4 font-bold text-green-500">
+                                BADSEED
+                            </div>
+                        ) : (
+                            <select
+                                value={targetMint}
+                                onChange={(e) => {
+                                    setTargetMint(e.target.value);
+                                    setQuote(null);
+                                }}
+                                className="sacrifice-select w-1/2 text-right"
+                            >
+                                <option value={SOL_MINT}>SOL</option>
+                                {/* Allow swapping BADSEED to any other held token */}
+                                {userTokens.filter(t => t.mint !== SOL_MINT && t.mint !== DEFAULT_TARGET_MINT).map(token => (
+                                    <option key={token.mint} value={token.mint}>
+                                        {token.symbol}
+                                    </option>
+                                ))}
+                            </select>
+                        )}
                     </div>
                 </div>
 
