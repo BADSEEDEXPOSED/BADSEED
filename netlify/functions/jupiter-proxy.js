@@ -1,4 +1,10 @@
 const axios = require('axios');
+const https = require('https');
+
+// Create an HTTPS agent that forces IPv4
+const agent = new https.Agent({
+    family: 4
+});
 
 exports.handler = async (event, context) => {
     // Enable CORS
@@ -28,7 +34,9 @@ exports.handler = async (event, context) => {
             },
             validateStatus: function (status) {
                 return status < 500; // Resolve only if status is less than 500
-            }
+            },
+            httpsAgent: agent, // FORCE IPv4
+            timeout: 8000 // 8s timeout to avoid Netlify 10s limit crash
         };
 
         // Endpoint routing
