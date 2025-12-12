@@ -13,8 +13,8 @@ import "@solana/wallet-adapter-react-ui/styles.css";
 
 function WalletWrapper() {
   // Use mainnet
-  // Switching to Project Serum RPC as fallback for Ankr/Mainnet-Beta rate limits
-  const endpoint = useMemo(() => "https://solana-api.projectserum.com", []);
+  // Priority: Custom Env Var -> Standard Mainnet (Fallback)
+  const endpoint = useMemo(() => process.env.REACT_APP_SOLANA_RPC_HOST || "https://api.mainnet-beta.solana.com", []);
 
   // Configure wallets
   const wallets = useMemo(
