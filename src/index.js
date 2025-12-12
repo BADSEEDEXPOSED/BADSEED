@@ -13,8 +13,9 @@ import "@solana/wallet-adapter-react-ui/styles.css";
 
 function WalletWrapper() {
   // Use mainnet
-  // Priority: Custom Env Var -> Standard Mainnet (Fallback)
-  const endpoint = useMemo(() => process.env.REACT_APP_SOLANA_RPC_HOST || "https://api.mainnet-beta.solana.com", []);
+  // Priority: Hardcoded Helius for Reliability (User provided key)
+  // Fallback: Custom Env Var -> Standard Mainnet
+  const endpoint = useMemo(() => "https://mainnet.helius-rpc.com/?api-key=273e36fb-f6f8-4556-8166-a2299b594197", []);
 
   // Configure wallets
   const wallets = useMemo(

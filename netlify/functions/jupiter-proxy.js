@@ -1,5 +1,5 @@
-// const fetch = require('node-fetch'); // REMOVED: Use native global fetch in Node 18+ to avoid ESM/CJS issues
-// If running on older Node, this might fail, but Netlify defaults to 18+ now.
+const fetch = require('node-fetch'); // Using v2 for CJS compatibility
+// Native fetch in Lambda can be finicky with DNS. node-fetch v2 is battle-tested.
 
 exports.handler = async (event, context) => {
     // Enable CORS
