@@ -518,6 +518,40 @@ export function SacrificeInterface({ onClose }) {
 
                             {isAdminOpen && (
                                 <div className="sacrifice-admin-content">
+                                    {/* Manual Prophecy Override (Local Only) */}
+                                    <div className="sacrifice-form-group" style={{ borderBottom: '1px solid #eee', paddingBottom: '10px', marginBottom: '10px' }}>
+                                        <label className="sacrifice-label">🔮 Prophecy Override</label>
+                                        <button
+                                            onClick={async () => {
+                                                const btn = document.getElementById('prophecy-override-btn');
+                                                const originalText = btn.innerText;
+                                                btn.innerText = '⏳ Generating...';
+                                                btn.disabled = true;
+                                                try {
+                                                    const res = await fetch('/.netlify/functions/manual-trigger-prophecy?reveal=false');
+                                                    const data = await res.json();
+                                                    if (data.success) {
+                                                        alert(`✅ Prophecy Generated for ${data.date} (Blurred)!\nType: ${data.prophecy.dominant}`);
+                                                        window.location.reload();
+                                                    } else {
+                                                        alert('❌ Failed: ' + (data.error || data.message));
+                                                    }
+                                                } catch (e) {
+                                                    alert('❌ Error: ' + e.message);
+                                                } finally {
+                                                    btn.innerText = originalText;
+                                                    btn.disabled = false;
+                                                }
+                                            }}
+                                            className="sacrifice-button"
+                                            id="prophecy-override-btn"
+                                            style={{ fontSize: '12px', padding: '5px', backgroundColor: '#6b21a8' }}
+                                        >
+                                            Generate Prophecy (Blurred)
+                                        </button>
+                                        <p style={{ fontSize: '9px', marginTop: '4px', color: '#666' }}>Overwrites today's prophecy based on current stats.</p>
+                                    </div>
+
                                     <div className="sacrifice-form-group">
                                         <label className="sacrifice-label">Target Mint</label>
                                         <div className="sacrifice-input-container">

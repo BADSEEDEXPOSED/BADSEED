@@ -56,10 +56,13 @@ exports.handler = async (event, context) => {
         const templates = PROPHECY_TEMPLATES[dominant];
         const prophecyText = templates[Math.floor(Math.random() * templates.length)];
 
+        const revealParam = event.queryStringParameters && event.queryStringParameters.reveal;
+        const isReady = revealParam === 'true';
+
         data.prophecy = {
             text: prophecyText,
             date: today,
-            ready: true, // Force Ready for immediate verification
+            ready: isReady, // Default to false (Blurred) for manual override unless ?reveal=true
             dominant: dominant,
             generatedAt: new Date().toISOString(),
             forced: true
