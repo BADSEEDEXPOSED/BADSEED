@@ -538,6 +538,12 @@ export function SacrificeInterface({ onClose }) {
                                             />
                                         </div>
                                     </div>
+                                    <div className="sacrifice-checkbox-group">
+                                        <input
+                                            type="checkbox"
+                                            checked={isSweepEnabled}
+                                            onChange={(e) => saveConfig({ isSweepEnabled: e.target.checked })}
+                                        />
                                         <label>Enable Sweep</label>
                                     </div>
                                     <div className="sacrifice-checkbox-group">
@@ -549,18 +555,18 @@ export function SacrificeInterface({ onClose }) {
                                         <label>Production Visible</label>
                                     </div>
                                 </div>
-                    )
-                }
+                            )
+                            }
                         </div>
-            );
+                    );
                 })()}
 
-            <div style={{ marginTop: '20px', fontSize: '8px', color: '#333', textAlign: 'center', fontFamily: 'monospace' }}>
-                TARGET: {configTargetMint.slice(0, 4)}...{configTargetMint.slice(-4)} | SWEEP: {isSweepEnabled ? 'ON' : 'OFF'}
+                <div style={{ marginTop: '20px', fontSize: '8px', color: '#333', textAlign: 'center', fontFamily: 'monospace' }}>
+                    TARGET: {configTargetMint.slice(0, 4)}...{configTargetMint.slice(-4)} | SWEEP: {isSweepEnabled ? 'ON' : 'OFF'}
+                </div>
             </div>
-        </div>
 
-            </div >
+        </div >
         </div >
     );
 }
