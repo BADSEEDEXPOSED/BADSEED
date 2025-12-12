@@ -1,6 +1,5 @@
 // Imports removed: PublicKey, VersionedTransaction unused
-
-const JUPITER_QUOTE_API = "https://quote-api.jup.ag/v6";
+// const JUPITER_QUOTE_API = "https://quote-api.jup.ag/v6"; // Unused - Replaced by Proxy
 
 /**
  * Get a swap quote from Jupiter
