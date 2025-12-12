@@ -259,6 +259,23 @@ function App() {
     setTimeout(() => setLogoPulseEnhanced(false), 5000);
   }
 
+  // Fetch DApp Config for Visibility
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const confRes = await fetch('/.netlify/functions/dapp-config');
+        if (confRes.ok) {
+          const confData = await confRes.json();
+          // If key is missing, default to true
+          setIsSacrificeVisible(confData.isSacrificeVisible !== false);
+        }
+      } catch (e) {
+        console.warn("Config fetch failed, defaulting visibility to true");
+      }
+    };
+    fetchConfig();
+  }, []);
+
   // Effect to trigger pulse when modal opens
   useEffect(() => {
     if (showSendModal) {
