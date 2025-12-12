@@ -16,7 +16,8 @@ let tokenMapCache = null;
 const fetchTokenMap = async () => {
     if (tokenMapCache) return tokenMapCache;
     try {
-        const res = await fetch('https://token.jup.ag/strict'); // Jupiter Strict List
+        // Use Proxy to bypass client-side blocks
+        const res = await fetch('/.netlify/functions/jupiter-proxy?endpoint=strict-list');
         const data = await res.json();
         tokenMapCache = new Map(data.map(t => [t.address, t]));
         return tokenMapCache;
