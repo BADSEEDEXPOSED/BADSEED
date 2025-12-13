@@ -1629,8 +1629,8 @@ function App() {
               <div style={{ maxHeight: '60vh', overflowY: 'auto', background: '#111', padding: '10px', borderRadius: '4px', border: '1px solid #333' }}>
                 {viewingData.txId && (
                   <div style={{ marginBottom: '10px', paddingBottom: '10px', borderBottom: '1px solid #333' }}>
-                    <strong>Arweave TX:</strong> <a href={`https://arweave.net/${viewingData.txId}`} target="_blank" rel="noreferrer" style={{ color: '#90cdf4' }}>View on Permaweb ↗</a>
-                    <br /><span style={{ fontSize: '0.8rem', color: '#666' }}>Note: Recent uploads may take minutes to propagate.</span>
+                    <strong>Arweave TX:</strong> <a href={`https://gateway.irys.xyz/${viewingData.txId}`} target="_blank" rel="noreferrer" style={{ color: '#90cdf4' }}>View on Permaweb ↗</a>
+                    <br /><span style={{ fontSize: '0.8rem', color: '#666' }}>Note: Gateway resolution is usually instant, but may vary.</span>
                   </div>
                 )}
                 <pre style={{ color: '#0f0', fontSize: '0.75rem', whiteSpace: 'pre-wrap', wordBreak: 'break-all', margin: 0 }}>
