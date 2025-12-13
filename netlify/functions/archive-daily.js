@@ -156,6 +156,12 @@ exports.handler = async (event, context) => {
                 manual: false,
                 data: dailyRecord // Store full data for local verification
             });
+            if (archiveState.history.length > 256) archiveState.history.pop();
+            await sentimentStorage.set('archive-state', archiveState);
+
+            // Deduplication: Clear posted history so they are not archived again
+            await queueStorage.set('posted-history', []);
+            console.log('[Archive] Cleared posted-history (Batch Processed).');
             // Clean up any pending retries (if we eventually implement retry logic to upload OLD dates)
             // For now, today is done.
         } else {
@@ -173,7 +179,7 @@ exports.handler = async (event, context) => {
         }
 
         // Keep history size sane
-        if (archiveState.history.length > 50) archiveState.history.pop();
+        if (archiveState.history.length > 256) archiveState.history.pop();
 
         await sentimentStorage.set('archive-state', archiveState);
 

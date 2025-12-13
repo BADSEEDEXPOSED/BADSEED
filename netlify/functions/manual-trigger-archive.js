@@ -124,8 +124,12 @@ exports.handler = async (event, context) => {
                 manual: true,
                 data: dailyRecord // Store full data for local verification
             });
-            if (archiveState.history.length > 50) archiveState.history.pop();
+            if (archiveState.history.length > 256) archiveState.history.pop();
             await sentimentStorage.set('archive-state', archiveState);
+
+            // Deduplication: Clear posted history
+            await queueStorage.set('posted-history', []);
+            console.log('[Manual Archive] Cleared posted-history.');
 
             return {
                 statusCode: 200,
