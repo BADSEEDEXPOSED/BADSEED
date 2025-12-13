@@ -1135,102 +1135,97 @@ function App() {
               </section>
             )}
 
-          {/* Manual Prophecy Override (Local Admin Only) */}
+          {/* Unified Admin System Controls (Local Only) */}
           {isLocalEnvironment() && (
             <div style={{
               marginTop: '10px',
               padding: '15px',
-              border: '1px dashed #6b21a8', // Purple dashed border
+              border: '1px dashed silver', // Silver dashed border
               borderRadius: '4px',
               background: 'rgba(0,0,0,0.3)',
               marginBottom: '1rem',
               textAlign: 'center'
             }}>
-              <strong style={{ color: '#d8b4fe', display: 'block', marginBottom: '10px', fontSize: '0.8rem' }}>ADMIN: PROPHECY CONTROLS</strong>
+              <strong style={{ color: '#ccc', display: 'block', marginBottom: '15px', fontSize: '0.8rem' }}>ADMIN: SYSTEM CONTROLS</strong>
 
-              <button
-                onClick={async () => {
-                  const btn = document.getElementById('prophecy-override-main-btn');
-                  const originalText = btn.innerText;
-                  btn.innerText = '⏳ Generating...';
-                  btn.disabled = true;
-                  try {
-                    const res = await fetch('/.netlify/functions/manual-trigger-prophecy?reveal=false');
-                    const data = await res.json();
-                    if (data.success) {
-                      alert(`✅ Prophecy Generated for ${data.date} (Blurred)!\nDominated by: ${data.prophecy.dominant.toUpperCase()}`);
-                      window.location.reload();
-                    } else {
-                      alert('❌ Failed: ' + (data.error || data.message));
-                    }
-                  } catch (e) {
-                    alert('❌ Error: ' + e.message);
-                  } finally {
-                    btn.innerText = originalText;
-                    btn.disabled = false;
-                  }
-                }}
-                className="blacklist-btn blacklist-btn-add"
-                id="prophecy-override-main-btn"
-                style={{ fontSize: '12px', padding: '8px 16px', backgroundColor: '#6b21a8', border: '1px solid #a855f7', cursor: 'pointer' }}
-              >
-                🔮 Force Prophecy Generation (Blurred)
-              </button>
-              <p style={{ fontSize: '9px', marginTop: '8px', color: '#888', maxWidth: '80%', margin: '8px auto 0' }}>
-                Calculation: Uses <strong>current</strong> collective sentiment stats (Hope/Fear/etc).<br />
-                Result: Overwrites today's prophecy and stays blurred until reveal.
-              </p>
-            </div>
-          )}
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', flexWrap: 'wrap' }}>
 
-          {/* Manual Archive Trigger (Local Admin Only) */}
-          {isLocalEnvironment() && (
-            <div style={{
-              marginTop: '10px',
-              padding: '15px',
-              border: '1px dashed #22c55e', // Green dashed border for Archive
-              borderRadius: '4px',
-              background: 'rgba(0,0,0,0.3)',
-              marginBottom: '1rem',
-              textAlign: 'center'
-            }}>
-              <strong style={{ color: '#86efac', display: 'block', marginBottom: '10px', fontSize: '0.8rem' }}>ADMIN: ARCHIVE CONTROLS</strong>
+                {/* Prophecy Control */}
+                <div style={{ flex: '1', minWidth: '200px' }}>
+                  <button
+                    onClick={async () => {
+                      const btn = document.getElementById('prophecy-override-main-btn');
+                      const originalText = btn.innerText;
+                      btn.innerText = '⏳ Generating...';
+                      btn.disabled = true;
+                      try {
+                        const res = await fetch('/.netlify/functions/manual-trigger-prophecy?reveal=false');
+                        const data = await res.json();
+                        if (data.success) {
+                          alert(`✅ Prophecy Generated for ${data.date} (Blurred)!\nDominated by: ${data.prophecy.dominant.toUpperCase()}`);
+                          window.location.reload();
+                        } else {
+                          alert('❌ Failed: ' + (data.error || data.message));
+                        }
+                      } catch (e) {
+                        alert('❌ Error: ' + e.message);
+                      } finally {
+                        btn.innerText = originalText;
+                        btn.disabled = false;
+                      }
+                    }}
+                    className="blacklist-btn blacklist-btn-add"
+                    id="prophecy-override-main-btn"
+                    style={{ fontSize: '12px', padding: '8px 16px', backgroundColor: '#6b21a8', border: '1px solid #a855f7', cursor: 'pointer', width: '100%' }}
+                  >
+                    🔮 Force Prophecy (Blurred)
+                  </button>
+                  <p style={{ fontSize: '9px', marginTop: '6px', color: '#888' }}>
+                    Uses <strong>current</strong> blended stats.<br />
+                    Overwrites today's prophecy.
+                  </p>
+                </div>
 
-              <button
-                onClick={async () => {
-                  const btn = document.getElementById('archive-force-btn');
-                  const originalText = btn.innerText;
-                  btn.innerText = '⏳ Archiving...';
-                  btn.disabled = true;
-                  try {
-                    const res = await fetch('/.netlify/functions/manual-trigger-archive');
-                    const data = await res.json();
-                    if (data.success) {
-                      alert(`✅ Archived Successfully!\nTX: ${data.txId}`);
-                      window.location.reload();
-                    } else if (data.chaosMode) {
-                      alert(`⚠️ Upload Failed (Chaos Mode Active)\nAdded to Pending Queue.\nReason: ${data.reason}`);
-                      window.location.reload();
-                    } else {
-                      alert('❌ Failed: ' + (data.error || data.message));
-                    }
-                  } catch (e) {
-                    alert('❌ Error: ' + e.message);
-                  } finally {
-                    btn.innerText = originalText;
-                    btn.disabled = false;
-                  }
-                }}
-                className="blacklist-btn blacklist-btn-add"
-                id="archive-force-btn"
-                style={{ fontSize: '12px', padding: '8px 16px', backgroundColor: '#15803d', border: '1px solid #22c55e', cursor: 'pointer' }}
-              >
-                📜 Force Daily Archive (Chaos Check)
-              </button>
-              <p style={{ fontSize: '9px', marginTop: '8px', color: '#888', maxWidth: '80%', margin: '8px auto 0' }}>
-                Action: Gathers daily stats, prophecy, and queue.<br />
-                Result: Uploads to Arweave (Permaweb) OR adds to Pending Queue if funds low.
-              </p>
+                {/* Archive Control */}
+                <div style={{ flex: '1', minWidth: '200px' }}>
+                  <button
+                    onClick={async () => {
+                      const btn = document.getElementById('archive-force-btn');
+                      const originalText = btn.innerText;
+                      btn.innerText = '⏳ Archiving...';
+                      btn.disabled = true;
+                      try {
+                        const res = await fetch('/.netlify/functions/manual-trigger-archive');
+                        const data = await res.json();
+                        if (data.success) {
+                          alert(`✅ Archived Successfully!\nTX: ${data.txId}`);
+                          window.location.reload();
+                        } else if (data.chaosMode) {
+                          alert(`⚠️ Upload Failed (Chaos Mode Active)\nAdded to Pending Queue.\nReason: ${data.reason}`);
+                          window.location.reload();
+                        } else {
+                          alert('❌ Failed: ' + (data.error || data.message));
+                        }
+                      } catch (e) {
+                        alert('❌ Error: ' + e.message);
+                      } finally {
+                        btn.innerText = originalText;
+                        btn.disabled = false;
+                      }
+                    }}
+                    className="blacklist-btn blacklist-btn-add"
+                    id="archive-force-btn"
+                    style={{ fontSize: '12px', padding: '8px 16px', backgroundColor: '#15803d', border: '1px solid #22c55e', cursor: 'pointer', width: '100%' }}
+                  >
+                    📜 Force Archive (Chaos Check)
+                  </button>
+                  <p style={{ fontSize: '9px', marginTop: '6px', color: '#888' }}>
+                    Uploads current state to Arweave.<br />
+                    Adds to Pending Queue if funds fail.
+                  </p>
+                </div>
+
+              </div>
             </div>
           )}
 
