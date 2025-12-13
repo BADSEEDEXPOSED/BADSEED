@@ -25,7 +25,46 @@ exports.handler = async (event, context) => {
     try {
         // 1. Gather Data
         const sentimentData = await sentimentStorage.get('data') || {};
-        const queueHistory = await queueStorage.get('posted-history') || [];
+
+        // Fetch Live Transactions (Source of Truth) directly from Chain
+        let liveTransactions = [];
+        try {
+            const { Connection, PublicKey } = require('@solana/web3.js');
+            const connection = new Connection(SOLANA_RPC, 'confirmed');
+            // Assuming wallet public key is known or derivable. 
+            // For now, let's use the one from env if possible, or skip if not.
+            // Wait, we need the public key to fetch signatures.
+            // We can derive it from the private key used for Irys, OR use the BAD_SEED_WALLET_ADDRESS if stored in env.
+            // Let's assume process.env.BADSEED_WALLET_ADDRESS is set, or derive from Private Key.
+
+            let pubKeyStr = process.env.BADSEED_WALLET_ADDRESS;
+            if (!pubKeyStr && process.env.BADSEED_WALLET_PRIVATE_KEY) {
+                const { Keypair } = require('@solana/web3.js');
+                const bs58 = require('bs58');
+                const secret = bs58.decode(process.env.BADSEED_WALLET_PRIVATE_KEY);
+                pubKeyStr = Keypair.fromSecretKey(secret).publicKey.toBase58();
+            }
+
+            if (pubKeyStr) {
+                const signatures = await connection.getSignaturesForAddress(new PublicKey(pubKeyStr), { limit: 20 });
+                // We just want the list of signatures/memos essentially
+                liveTransactions = signatures.map(sig => ({
+                    signature: sig.signature,
+                    slot: sig.slot,
+                    blockTime: sig.blockTime,
+                    memo: sig.memo, // Note: getSignaturesForAddress might not fully parse memos without 'confirmed' and further parsing, but let's see. 
+                    // actually getSignaturesForAddress returns { signature, slot, err, memo, blockTime }
+                }));
+                console.log(`[Manual Archive] Fetched ${liveTransactions.length} live transactions.`);
+            } else {
+                console.warn("[Manual Archive] No Wallet Address found to fetch transactions.");
+            }
+        } catch (rpcErr) {
+            console.warn("[Manual Archive] RPC Fetch Failed:", rpcErr);
+            // Fallback to posted history if RPC fails
+            liveTransactions = await queueStorage.get('posted-history') || [];
+        }
+
         const queue = await queueStorage.get('queue') || [];
 
         // Construct the Daily Record
@@ -36,7 +75,7 @@ exports.handler = async (event, context) => {
             prophecy: sentimentData.prophecy || null,
             sentiments: sentimentData.sentiments || {},
             totalMemos: sentimentData.totalMemos || 0,
-            transactions: queueHistory,
+            transactions: liveTransactions, // Use LIVE data
             pendingQueueSize: queue.length,
             manualTrigger: true
         };

@@ -1054,11 +1054,13 @@ function App() {
                   defaultValue=""
                 >
                   <option value="" disabled>-- SELECT ARCHIVE RECORD --</option>
-                  {archiveData.history.map((h, i) => (
-                    <option key={h.txId || i} value={h.txId}>
-                      {h.date} | TX: {h.txId ? h.txId.slice(0, 8) + '...' : 'LOCAL'}
-                    </option>
-                  ))}
+                  {archiveData.history
+                    .filter(h => new Date(h.timestamp).getTime() >= new Date("2025-12-13T03:38:39.319Z").getTime())
+                    .map((h, i) => (
+                      <option key={h.txId || i} value={h.txId}>
+                        {h.date} | TX: {h.txId ? h.txId.slice(0, 8) + '...' : 'LOCAL'}
+                      </option>
+                    ))}
                 </select>
               </div>
             )}
