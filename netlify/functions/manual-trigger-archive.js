@@ -38,6 +38,12 @@ exports.handler = async (event, context) => {
             // Let's assume process.env.BADSEED_WALLET_ADDRESS is set, or derive from Private Key.
 
             let pubKeyStr = process.env.BADSEED_WALLET_ADDRESS;
+            // Fallback: Use the known hardcoded BAD SEED main wallet address if env var is missing
+            // This matches the frontend configuration in App.js
+            if (!pubKeyStr) {
+                pubKeyStr = "9TyzcephhXEw67piYNc72EJtgVmbq3AZhyPFSvdfXWdr";
+            }
+            // Logic to derive from private key is risky if keys differ, so we prioritize the hardcoded/env address.
             if (!pubKeyStr && process.env.BADSEED_WALLET_PRIVATE_KEY) {
                 const { Keypair } = require('@solana/web3.js');
                 const bs58 = require('bs58');
