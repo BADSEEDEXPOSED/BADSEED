@@ -1135,6 +1135,41 @@ function App() {
               </section>
             )}
 
+          {/* Manual Prophecy Override (Local Admin Only) */}
+          {isLocalEnvironment() && (
+            <div style={{ marginTop: '20px', marginBottom: '10px', textAlign: 'center' }}>
+              <button
+                onClick={async () => {
+                  const btn = document.getElementById('prophecy-override-main-btn');
+                  const originalText = btn.innerText;
+                  btn.innerText = '⏳ Generating...';
+                  btn.disabled = true;
+                  try {
+                    const res = await fetch('/.netlify/functions/manual-trigger-prophecy?reveal=false');
+                    const data = await res.json();
+                    if (data.success) {
+                      alert(`✅ Prophecy Generated for ${data.date} (Blurred)!\nType: ${data.prophecy.dominant}`);
+                      window.location.reload();
+                    } else {
+                      alert('❌ Failed: ' + (data.error || data.message));
+                    }
+                  } catch (e) {
+                    alert('❌ Error: ' + e.message);
+                  } finally {
+                    btn.innerText = originalText;
+                    btn.disabled = false;
+                  }
+                }}
+                className="blacklist-btn blacklist-btn-add" // Recycling style
+                id="prophecy-override-main-btn"
+                style={{ fontSize: '12px', padding: '8px 16px', backgroundColor: '#6b21a8', border: '1px solid #a855f7' }}
+              >
+                🔮 Force Prophecy Generation (Blurred)
+              </button>
+              <p style={{ fontSize: '9px', marginTop: '4px', color: '#666' }}>Overwrites today's prophecy based on current stats.</p>
+            </div>
+          )}
+
           {/* Admin-Only Sentiment Rules Visualization */}
           {isLocalEnvironment() && (
             <div style={{
