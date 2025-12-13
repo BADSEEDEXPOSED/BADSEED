@@ -67,8 +67,13 @@ exports.handler = async (event, context) => {
             }
         } catch (rpcErr) {
             console.warn("[Manual Archive] RPC Fetch Failed:", rpcErr);
-            // Fallback to posted history if RPC fails
-            liveTransactions = await queueStorage.get('posted-history') || [];
+            // EXPOSE ERROR IN ARCHIVE FOR DEBUGGING
+            liveTransactions = [{
+                signature: "RPC_FAILURE",
+                memo: `Failed: ${rpcErr.message}`,
+                slot: 0,
+                blockTime: Math.floor(Date.now() / 1000)
+            }];
         }
 
         const queue = await queueStorage.get('queue') || [];
