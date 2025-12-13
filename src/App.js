@@ -1183,6 +1183,57 @@ function App() {
             </div>
           )}
 
+          {/* Manual Archive Trigger (Local Admin Only) */}
+          {isLocalEnvironment() && (
+            <div style={{
+              marginTop: '10px',
+              padding: '15px',
+              border: '1px dashed #22c55e', // Green dashed border for Archive
+              borderRadius: '4px',
+              background: 'rgba(0,0,0,0.3)',
+              marginBottom: '1rem',
+              textAlign: 'center'
+            }}>
+              <strong style={{ color: '#86efac', display: 'block', marginBottom: '10px', fontSize: '0.8rem' }}>ADMIN: ARCHIVE CONTROLS</strong>
+
+              <button
+                onClick={async () => {
+                  const btn = document.getElementById('archive-force-btn');
+                  const originalText = btn.innerText;
+                  btn.innerText = '⏳ Archiving...';
+                  btn.disabled = true;
+                  try {
+                    const res = await fetch('/.netlify/functions/manual-trigger-archive');
+                    const data = await res.json();
+                    if (data.success) {
+                      alert(`✅ Archived Successfully!\nTX: ${data.txId}`);
+                      window.location.reload();
+                    } else if (data.chaosMode) {
+                      alert(`⚠️ Upload Failed (Chaos Mode Active)\nAdded to Pending Queue.\nReason: ${data.reason}`);
+                      window.location.reload();
+                    } else {
+                      alert('❌ Failed: ' + (data.error || data.message));
+                    }
+                  } catch (e) {
+                    alert('❌ Error: ' + e.message);
+                  } finally {
+                    btn.innerText = originalText;
+                    btn.disabled = false;
+                  }
+                }}
+                className="blacklist-btn blacklist-btn-add"
+                id="archive-force-btn"
+                style={{ fontSize: '12px', padding: '8px 16px', backgroundColor: '#15803d', border: '1px solid #22c55e', cursor: 'pointer' }}
+              >
+                📜 Force Daily Archive (Chaos Check)
+              </button>
+              <p style={{ fontSize: '9px', marginTop: '8px', color: '#888', maxWidth: '80%', margin: '8px auto 0' }}>
+                Action: Gathers daily stats, prophecy, and queue.<br />
+                Result: Uploads to Arweave (Permaweb) OR adds to Pending Queue if funds low.
+              </p>
+            </div>
+          )}
+
           {/* Admin-Only Sentiment Rules Visualization */}
           {isLocalEnvironment() && (
             <div style={{

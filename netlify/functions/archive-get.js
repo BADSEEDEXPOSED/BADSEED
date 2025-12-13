@@ -20,7 +20,7 @@ exports.handler = async (event, context) => {
             date: p.date,
             attempts: p.attempts,
             lastAttempt: p.lastAttempt,
-            dataSize: JSON.stringify(p.data).length // Just show size
+            data: p.data // Return FULL data (Prophecy, Stats, etc) for inspection
         }));
 
         return {
