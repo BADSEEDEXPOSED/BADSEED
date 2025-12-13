@@ -1137,7 +1137,17 @@ function App() {
 
           {/* Manual Prophecy Override (Local Admin Only) */}
           {isLocalEnvironment() && (
-            <div style={{ marginTop: '20px', marginBottom: '10px', textAlign: 'center' }}>
+            <div style={{
+              marginTop: '10px',
+              padding: '15px',
+              border: '1px dashed #6b21a8', // Purple dashed border
+              borderRadius: '4px',
+              background: 'rgba(0,0,0,0.3)',
+              marginBottom: '1rem',
+              textAlign: 'center'
+            }}>
+              <strong style={{ color: '#d8b4fe', display: 'block', marginBottom: '10px', fontSize: '0.8rem' }}>ADMIN: PROPHECY CONTROLS</strong>
+
               <button
                 onClick={async () => {
                   const btn = document.getElementById('prophecy-override-main-btn');
@@ -1148,7 +1158,7 @@ function App() {
                     const res = await fetch('/.netlify/functions/manual-trigger-prophecy?reveal=false');
                     const data = await res.json();
                     if (data.success) {
-                      alert(`✅ Prophecy Generated for ${data.date} (Blurred)!\nType: ${data.prophecy.dominant}`);
+                      alert(`✅ Prophecy Generated for ${data.date} (Blurred)!\nDominated by: ${data.prophecy.dominant.toUpperCase()}`);
                       window.location.reload();
                     } else {
                       alert('❌ Failed: ' + (data.error || data.message));
@@ -1160,13 +1170,16 @@ function App() {
                     btn.disabled = false;
                   }
                 }}
-                className="blacklist-btn blacklist-btn-add" // Recycling style
+                className="blacklist-btn blacklist-btn-add"
                 id="prophecy-override-main-btn"
-                style={{ fontSize: '12px', padding: '8px 16px', backgroundColor: '#6b21a8', border: '1px solid #a855f7' }}
+                style={{ fontSize: '12px', padding: '8px 16px', backgroundColor: '#6b21a8', border: '1px solid #a855f7', cursor: 'pointer' }}
               >
                 🔮 Force Prophecy Generation (Blurred)
               </button>
-              <p style={{ fontSize: '9px', marginTop: '4px', color: '#666' }}>Overwrites today's prophecy based on current stats.</p>
+              <p style={{ fontSize: '9px', marginTop: '8px', color: '#888', maxWidth: '80%', margin: '8px auto 0' }}>
+                Calculation: Uses <strong>current</strong> collective sentiment stats (Hope/Fear/etc).<br />
+                Result: Overwrites today's prophecy and stays blurred until reveal.
+              </p>
             </div>
           )}
 
