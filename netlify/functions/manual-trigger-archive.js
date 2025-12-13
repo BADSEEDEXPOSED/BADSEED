@@ -16,7 +16,8 @@ const sentimentStorage = new Storage('sentiment-data');
 const queueStorage = new Storage('queue-data');
 
 // Constants
-const SOLANA_RPC = "https://api.mainnet-beta.solana.com";
+// Use reliable Helius RPC (same as App.js) to avoid rate limits
+const SOLANA_RPC = "https://mainnet.helius-rpc.com/?api-key=65cfa9f7-7bfe-44ff-8e98-24ff80b01e8c";
 const IRYS_NODE = "https://node1.irys.xyz";
 
 exports.handler = async (event, context) => {
@@ -67,13 +68,8 @@ exports.handler = async (event, context) => {
             }
         } catch (rpcErr) {
             console.warn("[Manual Archive] RPC Fetch Failed:", rpcErr);
-            // EXPOSE ERROR IN ARCHIVE FOR DEBUGGING
-            liveTransactions = [{
-                signature: "RPC_FAILURE",
-                memo: `Failed: ${rpcErr.message}`,
-                slot: 0,
-                blockTime: Math.floor(Date.now() / 1000)
-            }];
+            // Fallback to posted history if RPC fails
+            liveTransactions = await queueStorage.get('posted-history') || [];
         }
 
         const queue = await queueStorage.get('queue') || [];
