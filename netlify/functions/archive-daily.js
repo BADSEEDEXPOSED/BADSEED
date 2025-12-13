@@ -152,9 +152,10 @@ exports.handler = async (event, context) => {
             archiveState.history.unshift({
                 date: today,
                 txId: txId,
-                timestamp: new Date().toISOString()
+                timestamp: new Date().toISOString(),
+                manual: false,
+                data: dailyRecord // Store full data for local verification
             });
-
             // Clean up any pending retries (if we eventually implement retry logic to upload OLD dates)
             // For now, today is done.
         } else {

@@ -121,7 +121,8 @@ exports.handler = async (event, context) => {
                 date: today,
                 txId: txId,
                 timestamp: new Date().toISOString(),
-                manual: true
+                manual: true,
+                data: dailyRecord // Store full data for local verification
             });
             if (archiveState.history.length > 50) archiveState.history.pop();
             await sentimentStorage.set('archive-state', archiveState);
