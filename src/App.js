@@ -224,6 +224,7 @@ async function fetchAiLogsForTransactions(transactions, balanceSol, walletAddres
 
 function App() {
   const [showDashboard, setShowDashboard] = useState(false);
+  const [viewingData, setViewingData] = useState(null); // State for Data Viewer Modal
   const [balanceText, setBalanceText] = useState("Loading…");
   const [txItems, setTxItems] = useState([]);
   const [aiLogs, setAiLogs] = useState([]); // AI terminal logs per transaction
@@ -987,21 +988,36 @@ function App() {
                   🔴 TOPPLED
                   <span className="sub-value" style={{ display: 'block', fontSize: '0.8rem', marginTop: '4px', textAlign: 'right' }}>
                     {archiveData.pending.length} DAY{archiveData.pending.length !== 1 ? 'S' : ''} PENDING
+                    {archiveData.pending.length > 0 && (
+                      <button
+                        onClick={() => setViewingData({
+                          title: `Pending Archive (${archiveData.pending[0].date})`,
+                          content: archiveData.pending[0].data || archiveData.pending[0],
+                          txId: null
+                        })}
+                        className="archive-link"
+                        style={{ display: 'block', fontSize: '0.7rem', marginTop: '2px', textAlign: 'right', background: 'none', border: 'none', color: '#ff4444', cursor: 'pointer', textDecoration: 'underline', width: '100%' }}
+                      >
+                        📄 INSPECT PENDING
+                      </button>
+                    )}
                   </span>
                 </span>
               ) : (
                 <span className="value status-synced">
                   🟢 ARCHIVED
                   {archiveData.history.length > 0 && (
-                    <a
-                      href={`https://arweave.net/${archiveData.history[0].txId}`}
-                      target="_blank"
-                      rel="noreferrer"
+                    <button
+                      onClick={() => setViewingData({
+                        title: `Archive Record (${archiveData.history[0].date})`,
+                        content: archiveData.history[0], // Full record
+                        txId: archiveData.history[0].txId
+                      })}
                       className="archive-link"
-                      style={{ display: 'block', fontSize: '0.75rem', marginTop: '4px', textAlign: 'right' }}
+                      style={{ display: 'block', fontSize: '0.75rem', marginTop: '4px', textAlign: 'right', background: 'none', border: 'none', color: '#90cdf4', cursor: 'pointer', textDecoration: 'underline', width: '100%' }}
                     >
-                      VIEW LAST UPLOAD
-                    </a>
+                      📄 VIEW RECORD
+                    </button>
                   )}
                 </span>
               )}
@@ -1561,13 +1577,42 @@ function App() {
           </section>
         </div>
       </main>
+      {/* Data Viewer Modal (Archive & Pending) */}
+      {viewingData && (
+        <div className="modal-overlay" onClick={() => setViewingData(null)}>
+          <div className="send-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px', width: '90%' }}>
+            <h2>📋 {viewingData.title || "Archive Record"}</h2>
+
+            <div style={{ maxHeight: '60vh', overflowY: 'auto', background: '#111', padding: '10px', borderRadius: '4px', border: '1px solid #333' }}>
+              {viewingData.txId && (
+                <div style={{ marginBottom: '10px', paddingBottom: '10px', borderBottom: '1px solid #333' }}>
+                  <strong>Arweave TX:</strong> <a href={`https://arweave.net/${viewingData.txId}`} target="_blank" rel="noreferrer" style={{ color: '#90cdf4' }}>View on Permaweb ↗</a>
+                  <br /><span style={{ fontSize: '0.8rem', color: '#666' }}>Note: Recent uploads may take minutes to propagate.</span>
+                </div>
+              )}
+              <pre style={{ color: '#0f0', fontSize: '0.75rem', whiteSpace: 'pre-wrap', wordBreak: 'break-all', margin: 0 }}>
+                {JSON.stringify(viewingData.content, null, 2)}
+              </pre>
+            </div>
+
+            <div className="modal-buttons" style={{ marginTop: '15px' }}>
+              <button
+                className="modal-btn modal-btn-cancel"
+                onClick={() => setViewingData(null)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Send Message Modal */}
       {
         showSendModal && (
           <div className="modal-overlay" onClick={(e) => {
-            // Only close if clicking on the overlay itself, not the modal content
             if (e.target.className === 'modal-overlay') {
-              // Don't close - per requirements
+              // Don't close
             }
           }}>
             <div className="send-modal" onClick={(e) => e.stopPropagation()}>
