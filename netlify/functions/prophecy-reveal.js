@@ -7,24 +7,48 @@ const crypto = require('crypto');
 
 const storage = new Storage('sentiment-data');
 
+const { generateProphecy } = require('./lib/prophecy-logic'); // Import logic
+
 exports.handler = async (event, context) => {
     console.log('[Prophecy Reveal] Running at', new Date().toISOString());
 
     try {
         // Get current data
-        let data = await storage.get('data') || {
+        let storageData = await storage.get('data');
+
+        // SELF-HEALING: If no data or prophecy for today, GENERATE IT NOW
+        const today = new Date().toISOString().split('T')[0];
+
+        if (!storageData || !storageData.prophecy || storageData.prophecy.date !== today) {
+            console.log('[Prophecy Reveal] ⚠️ Missing prophecy for today. TRIGGERING SELF-HEALING generation...');
+
+            // Force generation (even if stats are stale, we need a prophecy)
+            const genResult = await generateProphecy(true); // force = true
+
+            // USE RETURNED DATA directly to avoid Storage cache race condition (TTL 5s)
+            if (genResult.success && genResult.prophecy) {
+                if (!storageData) storageData = {};
+                storageData.prophecy = genResult.prophecy;
+                console.log('[Prophecy Reveal] Self-Healing Complete. Prophecy generated.');
+            } else {
+                // Fallback refresh just in case
+                storageData = await storage.get('data');
+            }
+        }
+
+        let data = storageData || {
             totalMemos: 0,
             sentiments: { hope: 0, greed: 0, fear: 0, mystery: 0 },
             prophecy: { text: '', date: '', ready: false }
         };
 
-        const today = new Date().toISOString().split('T')[0];
         const prophecy = data.prophecy || {};
+        const todayString = new Date().toISOString().split('T')[0];
 
-        // Check if prophecy exists for today and not already revealed
-        if (!prophecy.text || prophecy.date !== today) {
-            console.log('[Prophecy Reveal] No prophecy for today');
-            return { statusCode: 200, body: JSON.stringify({ message: 'No prophecy to reveal' }) };
+        // Double check existence (should be there now)
+        if (!prophecy.text || prophecy.date !== todayString) {
+            console.log('[Prophecy Reveal] ❌ Critical: Failed to generate prophecy even after self-healing.');
+            return { statusCode: 500, body: JSON.stringify({ error: 'Failed to generate prophecy' }) };
         }
 
         if (prophecy.ready) {
