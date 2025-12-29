@@ -29,6 +29,12 @@ const PROPHECY_TEMPLATES = {
 async function generateProphecy(force = false) {
     console.log('[Prophecy Logic] Starting generation...', { force });
 
+    // PROBE: Check for Keys (Boolean only, safety first)
+    console.log('[DEBUG PROBE] Checking Environment Keys:');
+    console.log('- OPENAI_API_KEY Present:', !!process.env.OPENAI_API_KEY);
+    console.log('- UPSTASH_REDIS_REST_URL Present:', !!process.env.UPSTASH_REDIS_REST_URL);
+    console.log('- UPSTASH_REDIS_REST_TOKEN Present:', !!process.env.UPSTASH_REDIS_REST_TOKEN);
+
     try {
         // Get current sentiment data
         let data = await storage.get('data') || {

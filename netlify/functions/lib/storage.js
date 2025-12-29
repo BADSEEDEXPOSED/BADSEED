@@ -4,6 +4,11 @@
 const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL;
 const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
 
+console.log('[DEBUG PROBE] Storage Module Loaded. Keys accessible:', {
+    url: !!UPSTASH_URL,
+    token: !!UPSTASH_TOKEN
+});
+
 class Storage {
     constructor(storeName) {
         this.storeName = storeName;
