@@ -31,7 +31,9 @@ exports.handler = async (event) => {
                     date: prophecy.date,
                     ready: prophecy.ready || false,
                     x_post_status: prophecy.x_post_status || 'unknown',
-                    revealed_at: prophecy.revealedAt || null
+                    revealed_at: prophecy.revealedAt || null,
+                    system_status: data.system_status || 'nominal',
+                    last_error: data.last_error || null
                 })
             };
         }

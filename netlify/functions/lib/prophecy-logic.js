@@ -147,6 +147,18 @@ Task: Write a cryptic, atmospheric prophecy (max 280 chars) that reflects this E
 
     } catch (error) {
         console.error('[Prophecy Logic] Error:', error);
+
+        // PAIN RECEPTORS: Save error to DB so God Node knows it's hurt
+        try {
+            let errorData = await storage.get('data') || {};
+            errorData.system_status = 'error';
+            errorData.last_error = error.message;
+            errorData.last_error_time = new Date().toISOString();
+            await storage.set('data', errorData);
+        } catch (dbError) {
+            console.error('[Prophecy Logic] Failed to save error state:', dbError);
+        }
+
         throw error;
     }
 }
