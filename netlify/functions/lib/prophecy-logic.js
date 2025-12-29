@@ -131,6 +131,7 @@ Task: Write a cryptic, atmospheric prophecy (max 280 chars) that reflects this E
             ready: false,
             dominant: dominant,
             percentages: percentages,
+            x_post_status: 'pending', // [NEW] Track X.com status
             generatedAt: new Date().toISOString()
         };
 

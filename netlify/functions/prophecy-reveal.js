@@ -79,9 +79,12 @@ exports.handler = async (event, context) => {
 
             data.prophecy.postedAt = new Date().toISOString();
             data.prophecy.tweetId = postResult.id;
+            data.prophecy.x_post_status = 'posted'; // [NEW] Success
             await storage.set('data', data);
         } catch (postError) {
             console.error('[Prophecy Reveal] Failed to post:', postError.message);
+            data.prophecy.x_post_status = 'failed'; // [NEW] Failure
+            await storage.set('data', data); // Save the failure status
             // Don't fail the whole function, prophecy is still revealed
         }
 

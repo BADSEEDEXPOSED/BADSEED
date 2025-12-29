@@ -29,7 +29,9 @@ exports.handler = async (event) => {
                 body: JSON.stringify({
                     text: prophecy.text,
                     date: prophecy.date,
-                    ready: prophecy.ready || false
+                    ready: prophecy.ready || false,
+                    x_post_status: prophecy.x_post_status || 'unknown',
+                    revealed_at: prophecy.revealedAt || null
                 })
             };
         }
