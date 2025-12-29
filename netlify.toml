@@ -14,21 +14,3 @@
   targetPort = 8080
   port = 8888
 
-
-# --- AUTOMATION SCHEDULES ---
-
-# 1. 12:00 PM UTC: Generate Daily Prophecy (Hidden)
-[[functions]]
-  package = "netlify/functions/prophecy-generate"
-  schedule = "0 12 * * *"
-
-# 2. 6:00 PM UTC: Reveal Prophecy & Post to X.com
-[[functions]]
-  package = "netlify/functions/prophecy-reveal"
-  schedule = "0 18 * * *"
-
-# 3. 11:55 PM UTC: Crystalize History to Arweave
-[[functions]]
-  package = "netlify/functions/archive-daily"
-  schedule = "55 23 * * *"
-

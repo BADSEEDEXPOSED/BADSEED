@@ -58,7 +58,14 @@ exports.handler = async (event, context) => {
 
         // Mark as ready (unblurred)
         data.prophecy.ready = true;
-        data.prophecy.revealedAt = new Date().toISOString();
+        if (!data.prophecy.revealedAt) {
+            data.prophecy.revealedAt = new Date().toISOString();
+        }
+
+        // Ensure x_post_status is at least pending if unknown
+        if (!data.prophecy.x_post_status) {
+            data.prophecy.x_post_status = 'pending';
+        }
 
         // RESET MYSTERY SENTIMENT (The "Reset" Rule)
         if (data.sentiments) {
