@@ -12,6 +12,14 @@ exports.handler = async (event, context) => {
     console.log('[Queue Processor] Running at', new Date().toISOString());
 
     try {
+        // 0. Check Pause Status
+        const controlStorage = new Storage('queue-control');
+        const status = await controlStorage.get('status');
+        if (status && status.paused) {
+            console.log('[Queue Processor] SKIPPED: Queue is paused.');
+            return { statusCode: 200, body: 'Queue paused' };
+        }
+
         // 1. Get Queue
         let queue = await storage.get('queue') || [];
 
