@@ -282,39 +282,55 @@ exports.handler = async (event) => {
             logs.push(response);
 
             // ----------------------------------------------------------------
-            // HEURISTIC SENTIMENT WEIGHTING
-            // User Rules:
-            // 1. Outgoing SOL -> Greed (some), Fear (little)
-            // 2. Incoming SOL -> Hope (some) based on memo
-            // 3. No Memo -> Mystery (little)
-            // 4. Mystery sentiment increases if memo is not hopeful/fearful/greedy
+            // DYNAMIC SENTIMENT LOGIC v1.0
+            // Loaded from 'sentiment-config' (Admin Controlled)
             // ----------------------------------------------------------------
 
-            // Start with the AI's core sentiment
+            // Start with AI-detected sentiment
             const txSentiments = [sentiment];
 
-            // 1. Outgoing Transaction (Spending SOL)
-            // "Greed some, Fear a little"
-            if (amount < 0 || tx.direction === 'out') {
-                txSentiments.push('greed', 'greed'); // +2 Greed
-                txSentiments.push('fear');           // +1 Fear
-            }
+            try {
+                // Load Rules (Cached or Fresh)
+                const logicStorage = new Storage('sentiment-config');
+                let rules = await logicStorage.get('rules');
 
-            // 2. Incoming Transaction (Receiving SOL)
-            // "Hope some" (regardless of memo)
-            else if (amount > 0 || tx.direction === 'in') {
-                txSentiments.push('hope', 'hope');   // +2 Hope
-            }
+                // Fallbacks if Redis is empty or fails
+                if (!rules || !Array.isArray(rules)) {
+                    rules = [
+                        { condition: "direction:out", effect: "greed", value: 2 },
+                        { condition: "direction:out", effect: "fear", value: 1 },
+                        { condition: "direction:in", effect: "hope", value: 2 },
+                        { condition: "memo:none", effect: "mystery", value: 1 },
+                        { condition: "ai:mystery", effect: "mystery", value: 1 }
+                    ];
+                }
 
-            // 3. Mystery Logic
-            if (!memo) {
-                // "Change a little if any transaction has no memo"
-                txSentiments.push('mystery');        // +1 Mystery
-            } else if (sentiment === 'mystery') {
-                // "Change some if the memo is not hopeful or fearful or greedy"
-                // AI already gave +1 Mystery, add another +1 for "some"
+                // Evaluate Rules
+                rules.forEach(rule => {
+                    let match = false;
+
+                    // Condition Parsers
+                    if (rule.condition === 'direction:out' && (amount < 0 || tx.direction === 'out')) match = true;
+                    if (rule.condition === 'direction:in' && (amount > 0 || tx.direction === 'in')) match = true;
+                    if (rule.condition === 'memo:none' && !memo) match = true;
+                    if (rule.condition === 'memo:exists' && memo) match = true;
+                    if (rule.condition === 'ai:mystery' && sentiment === 'mystery') match = true;
+
+                    // Apply Effect
+                    if (match) {
+                        const count = rule.value || 1;
+                        for (let i = 0; i < count; i++) txSentiments.push(rule.effect);
+                    }
+                });
+
+            } catch (logicErr) {
+                console.error("Logic Engine Fail:", logicErr);
+                // Emergency Fallback
                 txSentiments.push('mystery');
             }
+
+            // Allow manual "Sol IN" override via simple check if rules failed completely? 
+            // No, the default rules cover it.
 
             // Push ALL derived sentiments for this transaction
             sentiments.push(...txSentiments);
