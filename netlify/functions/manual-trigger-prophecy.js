@@ -31,6 +31,17 @@ const PROPHECY_TEMPLATES = {
 };
 
 exports.handler = async (event, context) => {
+    // CORS Headers
+    const headers = {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type',
+        'Content-Type': 'application/json'
+    };
+
+    if (event.httpMethod === 'OPTIONS') {
+        return { statusCode: 200, headers, body: '' };
+    }
+
     console.log('[Manual Prophecy Trigger] Invoked at', new Date().toISOString());
 
     try {

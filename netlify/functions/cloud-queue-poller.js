@@ -270,6 +270,9 @@ exports.handler = async (event, context) => {
             console.log(`[Cloud Poller] Queue updated. Total items: ${queue.length}`);
         }
 
+        // HEARTBEAT UPDATE (God Mode Monitor)
+        await storage.set('last-heartbeat', new Date().toISOString());
+
         return {
             statusCode: 200,
             body: JSON.stringify({ added: addedCount, queueSize: queue.length })
