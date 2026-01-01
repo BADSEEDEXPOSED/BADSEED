@@ -34,6 +34,18 @@ async function solanaRpc(method, params) {
 }
 
 exports.handler = async (event, context) => {
+    // CORS Headers for Manual Trigger (Console)
+    const headers = {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type',
+        'Content-Type': 'application/json'
+    };
+
+    // Handle Preflight
+    if (event.httpMethod === 'OPTIONS') {
+        return { statusCode: 200, headers, body: '' };
+    }
+
     console.log('[Cloud Poller] Starting check...');
 
     try {
@@ -199,7 +211,7 @@ exports.handler = async (event, context) => {
 
         if (newMemos.length === 0) {
             console.log('[Cloud Poller] No new clean memos.');
-            return { statusCode: 200, body: 'No new memos' };
+            return { statusCode: 200, headers, body: JSON.stringify({ message: 'No new memos' }) };
         }
 
         // 4. Generate AI Logs & Queue
@@ -275,12 +287,13 @@ exports.handler = async (event, context) => {
 
         return {
             statusCode: 200,
+            headers,
             body: JSON.stringify({ added: addedCount, queueSize: queue.length })
         };
 
     } catch (e) {
         console.error('[Cloud Poller] Critical Error:', e);
-        return { statusCode: 500, body: e.message };
+        return { statusCode: 500, headers, body: JSON.stringify({ error: e.message }) };
     }
 };
 
