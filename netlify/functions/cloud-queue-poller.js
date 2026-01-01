@@ -49,6 +49,10 @@ exports.handler = async (event, context) => {
     console.log('[Cloud Poller] Starting check...');
 
     try {
+        // 0. Update Heartbeat (Alive Signal)
+        // We do this first so even if we find nothing, we know we are alive.
+        await storage.set('last-heartbeat', new Date().toISOString());
+
         // 1. Fetch Recent Transactions
         const signatures = await solanaRpc("getSignaturesForAddress", [
             BAD_SEED_WALLET,
@@ -57,7 +61,7 @@ exports.handler = async (event, context) => {
 
         if (!signatures || signatures.length === 0) {
             console.log('[Cloud Poller] No signatures found.');
-            return { statusCode: 200, body: 'No Data' };
+            return { statusCode: 200, headers, body: 'No Data' };
         }
 
         // 2. Fetch Transaction Details (Batching not supported nicely on generic RPC, doing parallel)
@@ -282,8 +286,7 @@ exports.handler = async (event, context) => {
             console.log(`[Cloud Poller] Queue updated. Total items: ${queue.length}`);
         }
 
-        // HEARTBEAT UPDATE (God Mode Monitor)
-        await storage.set('last-heartbeat', new Date().toISOString());
+
 
         return {
             statusCode: 200,
