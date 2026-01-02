@@ -7,6 +7,25 @@
   <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>BAD SEED • Exposed Wallet</title>
+  <script>
+    // GLOBAL ERROR SUPPRESSION (MetaMask / Extension Conflicts)
+    // Prevents "Red Box" overlay in local dev when extensions misbehave
+    // Must run BEFORE React/Webpack bundle
+    window.addEventListener('unhandledrejection', event => {
+      // Filter out MetaMask / Extension noise
+      if (event.reason && event.reason.message && (event.reason.message.includes('MetaMask') || event.reason.message.includes('extension') || event.reason.message.includes('Access to storage'))) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+      }
+    });
+    window.addEventListener('error', event => {
+      if (event.message && (event.message.includes('MetaMask') || event.message.includes('extension') || event.message.includes('Access to storage'))) {
+        event.stopImmediatePropagation();
+        event.preventDefault();
+      }
+    });
+  </script>
 </head>
 
 <body>
