@@ -5,11 +5,27 @@ import "./index.css";
 import App from "./App";
 import { ConnectionProvider, WalletProvider } from "@solana/wallet-adapter-react";
 import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
-import { PhantomWalletAdapter, SolflareWalletAdapter } from "@solana/wallet-adapter-wallets";
+import { PhantomWalletAdapter } from "@solana/wallet-adapter-wallets";
 // import { clusterApiUrl } from "@solana/web3.js"; // Unused
 
 // Import wallet adapter CSS
 import "@solana/wallet-adapter-react-ui/styles.css";
+
+// -----------------------------------------------------------
+// GLOBAL ERROR SUPPRESSION (MetaMask / Extension Conflicts)
+// -----------------------------------------------------------
+// Prevents "Red Box" overlay in local dev when extensions misbehave
+window.addEventListener('unhandledrejection', event => {
+  if (event.reason && event.reason.message && event.reason.message.includes('MetaMask')) {
+    event.preventDefault(); // Prevent standard error handling
+  }
+});
+window.addEventListener('error', event => {
+  if (event.message && (event.message.includes('MetaMask') || event.message.includes('extension'))) {
+    event.stopImmediatePropagation();
+  }
+});
+// -----------------------------------------------------------
 
 function WalletWrapper() {
   // Use mainnet
@@ -21,7 +37,6 @@ function WalletWrapper() {
   const wallets = useMemo(
     () => [
       new PhantomWalletAdapter(),
-      new SolflareWalletAdapter(),
     ],
     []
   );
