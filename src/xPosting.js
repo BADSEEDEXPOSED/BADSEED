@@ -190,8 +190,8 @@ function checkAndPost() {
     const hour = now.getUTCHours();
     const isWindow = hour === 0 || hour === 12;
     if (isWindow) {
-        console.log("In posting window. Checking queue...");
-        processQueue();
+        console.log("In posting window. But avoiding client-side auto-post. Server CRON handles this.");
+        // processQueue(); // DISABLED: Handled by Server-Side Cron to prevent double-posting
     }
 }
 

@@ -27,5 +27,5 @@ exports.handler = async (event, context) => {
 };
 
 exports.config = {
-    schedule: "0 12 * * *"  // 12:00 UTC daily
+    schedule: "0 0 * * *"  // 00:00 UTC daily (Midnight)
 };
