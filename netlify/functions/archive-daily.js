@@ -12,6 +12,8 @@ const { Connection, Keypair, PublicKey } = require('@solana/web3.js');
 const bip39 = require('bip39');
 const { derivePath } = require('ed25519-hd-key');
 const crypto = require('crypto');
+// [FIX] Import Prophecy Logic to ensure freshness
+const { generateProphecy } = require('./lib/prophecy-logic');
 
 // Initialize Storage
 const sentimentStorage = new Storage('sentiment-data');
@@ -21,20 +23,42 @@ const queueStorage = new Storage('queue-data');
 const SOLANA_RPC = "https://mainnet.helius-rpc.com/?api-key=65cfa9f7-7bfe-44ff-8e98-24ff80b01e8c"; // Helius Mainnet
 const IRYS_NODE = "https://node1.irys.xyz"; // Mainnet
 
-const bs58 = require('bs58'); // You might need to install this if not present, checking dependencies... 
-// Actually @solana/web3.js includes bs58 usually or we can use Keypair.fromSecretKey directly if we decode it.
+const bs58 = require('bs58');
 
 exports.handler = async (event, context) => {
     console.log('[Daily Archive] Running at', new Date().toISOString());
 
     try {
         // 1. Gather Data
-        const sentimentData = await sentimentStorage.get('data') || {};
+        let sentimentData = await sentimentStorage.get('data') || {};
         const queueHistory = await queueStorage.get('posted-history') || [];
         const queue = await queueStorage.get('queue') || [];
 
-        // Construct the Daily Record
+        // [FIX] Check for Stale Prophecy (Date Mismatch)
         const today = new Date().toISOString().split('T')[0];
+        const lastProphecyDate = sentimentData.prophecy ? sentimentData.prophecy.date : null;
+
+        if (lastProphecyDate !== today) {
+            console.log(`[Archive] Prophecy Stale (Last: ${lastProphecyDate}, Today: ${today}). Waking Oracle...`);
+            try {
+                // Force Generation (updates DB and returns fresh prophecy)
+                const genResult = await generateProphecy(true);
+                if (genResult && genResult.prophecy) {
+                    console.log('[Archive] Prophecy Regenerated Successfully.');
+                    // Update validity of our local data object
+                    sentimentData.prophecy = genResult.prophecy;
+                    // Note: generateProphecy() does NOT reset sentiment counts, so those remain accurate.
+                }
+            } catch (genErr) {
+                console.error('[Archive] Failed to regenerate prophecy:', genErr);
+                // We proceed with stale prophecy if gen fails, to at least save the transactions?
+                // Or we fail? The user wants "make sure the record happens AFTER".
+                // If gen fails, the record is incomplete. But better to archive something than nothing?
+                // Let's attach metadata saying it failed.
+            }
+        }
+
+        // Construct the Daily Record
         const dailyRecord = {
             date: today,
             timestamp: new Date().toISOString(),

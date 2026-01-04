@@ -11,22 +11,6 @@ import { PhantomWalletAdapter } from "@solana/wallet-adapter-wallets";
 // Import wallet adapter CSS
 import "@solana/wallet-adapter-react-ui/styles.css";
 
-// -----------------------------------------------------------
-// GLOBAL ERROR SUPPRESSION (MetaMask / Extension Conflicts)
-// -----------------------------------------------------------
-// Prevents "Red Box" overlay in local dev when extensions misbehave
-window.addEventListener('unhandledrejection', event => {
-  if (event.reason && event.reason.message && event.reason.message.includes('MetaMask')) {
-    event.preventDefault(); // Prevent standard error handling
-  }
-});
-window.addEventListener('error', event => {
-  if (event.message && (event.message.includes('MetaMask') || event.message.includes('extension'))) {
-    event.stopImmediatePropagation();
-  }
-});
-// -----------------------------------------------------------
-
 function WalletWrapper() {
   // Use mainnet
   // Priority: Hardcoded Helius for Reliability (User provided key)
