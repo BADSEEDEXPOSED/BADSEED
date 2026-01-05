@@ -8,8 +8,9 @@ const { Storage } = require('./lib/storage');
 
 const storage = new Storage('queue-data');
 
-exports.handler = async (event, context) => {
-    console.log('[Queue Processor] Running at', new Date().toISOString());
+// Export core logic for manual usage
+exports.processQueue = async (logType = "AUTO_DIGEST") => {
+    console.log(`[Queue Processor] Running (${logType}) at`, new Date().toISOString());
 
     try {
         // 0. Check Pause Status
@@ -54,16 +55,16 @@ exports.handler = async (event, context) => {
         const logStorage = new Storage('transmission-log');
         let logs = await logStorage.get('logs') || [];
         logs.unshift({
-            id: tweetId, // Fixed ID access
+            id: tweetId,
             text: tweetText,
             date: new Date().toISOString(),
-            type: "AUTO_DIGEST",
+            type: logType, // Dynamic Type
             link: `https://x.com/i/status/${tweetId}`
         });
         if (logs.length > 50) logs.pop();
         await logStorage.set('logs', logs);
 
-        console.log('[Queue Processor] Queue cleared and Transmission Log updated.');
+        console.log(`[Queue Processor] Queue cleared and Transmission Log (${logType}) updated.`);
 
         return {
             statusCode: 200,
@@ -74,6 +75,10 @@ exports.handler = async (event, context) => {
         console.error('[Queue Processor] Error:', error);
         return { statusCode: 500, body: JSON.stringify({ error: error.message }) };
     }
+};
+
+exports.handler = async (event, context) => {
+    return exports.processQueue("AUTO_DIGEST");
 };
 
 // Helper: Format Tweet (Ported from xPosting.js)
