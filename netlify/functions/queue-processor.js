@@ -34,7 +34,8 @@ exports.handler = async (event, context) => {
 
         // 3. Post to X
         const postResult = await postToX(tweetText);
-        console.log('[Queue Processor] Post Success:', postResult.id);
+        const tweetId = postResult.data ? postResult.data.id : "unknown";
+        console.log('[Queue Processor] Post Success:', tweetId);
 
         // 4. Archive & Clear
         let history = await storage.get('posted-history') || [];
@@ -49,25 +50,24 @@ exports.handler = async (event, context) => {
         await storage.set('posted-history', history);
         await storage.set('queue', []); // Clear processed items
 
-        // 5. UPDATE TRANSMISSION LOG (For Console Verification)
-        // Store full metadata so the console can link to the actual tweet
+        // 5. UPDATE TRANSMISSION LOG
         const logStorage = new Storage('transmission-log');
         let logs = await logStorage.get('logs') || [];
         logs.unshift({
-            id: postResult.id || "unknown", // Tweet ID
+            id: tweetId, // Fixed ID access
             text: tweetText,
             date: new Date().toISOString(),
             type: "AUTO_DIGEST",
-            link: `https://x.com/i/status/${postResult.id}`
+            link: `https://x.com/i/status/${tweetId}`
         });
-        if (logs.length > 50) logs.pop(); // Keep last 50
+        if (logs.length > 50) logs.pop();
         await logStorage.set('logs', logs);
 
         console.log('[Queue Processor] Queue cleared and Transmission Log updated.');
 
         return {
             statusCode: 200,
-            body: JSON.stringify({ success: true, tweetId: postResult.id })
+            body: JSON.stringify({ success: true, tweetId: tweetId })
         };
 
     } catch (error) {
