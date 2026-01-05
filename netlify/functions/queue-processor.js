@@ -49,7 +49,21 @@ exports.handler = async (event, context) => {
         await storage.set('posted-history', history);
         await storage.set('queue', []); // Clear processed items
 
-        console.log('[Queue Processor] Queue cleared and history updated.');
+        // 5. UPDATE TRANSMISSION LOG (For Console Verification)
+        // Store full metadata so the console can link to the actual tweet
+        const logStorage = new Storage('transmission-log');
+        let logs = await logStorage.get('logs') || [];
+        logs.unshift({
+            id: postResult.id || "unknown", // Tweet ID
+            text: tweetText,
+            date: new Date().toISOString(),
+            type: "AUTO_DIGEST",
+            link: `https://x.com/i/status/${postResult.id}`
+        });
+        if (logs.length > 50) logs.pop(); // Keep last 50
+        await logStorage.set('logs', logs);
+
+        console.log('[Queue Processor] Queue cleared and Transmission Log updated.');
 
         return {
             statusCode: 200,

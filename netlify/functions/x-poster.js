@@ -115,6 +115,20 @@ exports.handler = async function (event, context) {
             }
         }
 
+        // 5. UPDATE TRANSMISSION LOG (For Console Verification)
+        const { Storage } = require('./lib/storage'); // Re-import safely or assume scope
+        const logStorage = new Storage('transmission-log');
+        let logs = await logStorage.get('logs') || [];
+        logs.unshift({
+            id: data.data.id || "unknown",
+            text: text,
+            date: new Date().toISOString(),
+            type: "MANUAL_POST",
+            link: `https://x.com/i/status/${data.data.id}`
+        });
+        if (logs.length > 50) logs.pop();
+        await logStorage.set('logs', logs);
+
         return {
             statusCode: 200,
             body: JSON.stringify({ success: true, data }),
