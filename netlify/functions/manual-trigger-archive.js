@@ -123,7 +123,7 @@ exports.handler = async (event, context) => {
         } catch (walletErr) {
             console.warn("[Manual Archive] Wallet setup failed:", walletErr);
             // Proceed to Chaos Mode logic (add to pending)
-            return await addToPending(today, dailyRecord, "Wallet Setup Failed");
+            return await addToPending(today, dailyRecord, "Wallet Setup Failed", headers);
         }
 
 
@@ -139,7 +139,7 @@ exports.handler = async (event, context) => {
             await irys.ready();
         } catch (e) {
             console.warn("[Manual Archive] Irys init failed:", e);
-            return await addToPending(today, dailyRecord, "Irys Connection Failed");
+            return await addToPending(today, dailyRecord, "Irys Connection Failed", headers);
         }
 
         // 4. Check Cost & Balance (Chaos Check)
@@ -150,7 +150,7 @@ exports.handler = async (event, context) => {
         } catch (e) {
             console.warn("[Manual Archive] Price check failed:", e);
             // Fallback attempt or fail
-            return await addToPending(today, dailyRecord, "Price Check Failed");
+            return await addToPending(today, dailyRecord, "Price Check Failed", headers);
         }
 
         let txId = null;
@@ -190,6 +190,7 @@ exports.handler = async (event, context) => {
 
             return {
                 statusCode: 200,
+                headers,
                 body: JSON.stringify({
                     success: true,
                     message: "Archive Uploaded Successfully",
@@ -198,17 +199,17 @@ exports.handler = async (event, context) => {
             };
 
         } else {
-            return await addToPending(today, dailyRecord, "Upload/Fund Failed");
+            return await addToPending(today, dailyRecord, "Upload/Fund Failed", headers);
         }
 
     } catch (error) {
         console.error('[Manual Archive Error]', error);
-        return { statusCode: 500, body: JSON.stringify({ error: error.message }) };
+        return { statusCode: 500, headers, body: JSON.stringify({ error: error.message }) };
     }
 };
 
 // Helper: Add to Pending Queue
-async function addToPending(today, dailyRecord, reason) {
+async function addToPending(today, dailyRecord, reason, headers) {
     const sentimentStorage = new Storage('sentiment-data');
     let archiveState = await sentimentStorage.get('archive-state') || { pending: [], history: [] };
 
@@ -233,6 +234,7 @@ async function addToPending(today, dailyRecord, reason) {
 
     return {
         statusCode: 200,
+        headers,
         body: JSON.stringify({
             success: false,
             chaosMode: true,
