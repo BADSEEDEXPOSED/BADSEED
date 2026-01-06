@@ -1208,31 +1208,43 @@ function App() {
                   );
                 })()}
 
-                {/* DEBUG FOOTER (Discreet) */}
+                {/* STATUS FOOTER */}
                 <div style={{
-                  marginTop: '20px',
-                  padding: '5px',
-                  borderTop: '1px solid #333',
-                  fontSize: '9px',
-                  color: '#444',
+                  marginTop: '15px',
+                  padding: '8px',
+                  borderTop: '1px solid #222',
+                  fontSize: '0.75rem',
+                  color: '#666',
                   textAlign: 'center',
-                  fontFamily: 'monospace'
+                  fontFamily: 'monospace',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  background: 'rgba(0,0,0,0.2)',
+                  borderRadius: '2px'
                 }}>
-                  DEBUG: {new Date().toISOString()} |
-                  Env: {isLocalEnvironment() ? 'LOCAL' : 'PROD'} |
-                  Prophecy: {(() => {
-                    if (!sentimentData || !sentimentData.prophecy) return 'N/A';
-                    const p = sentimentData.prophecy;
-                    // Logic Replication for Debug
-                    const now = new Date();
-                    const todayStr = now.toISOString().split('T')[0];
-                    const isToday = p.date === todayStr;
-                    const currentHour = now.getUTCHours();
-                    const isTooEarly = isToday && currentHour < 18;
-                    const shouldBlur = !isLocalEnvironment() && (!p.ready || (isTooEarly && !p.forced_ready));
+                  <span>⏳ Reveals: 18:00 UTC</span>
+                  <span>
+                    {(() => {
+                      if (!sentimentData || !sentimentData.prophecy) return 'Loading...';
+                      const p = sentimentData.prophecy;
+                      const now = new Date();
+                      const todayStr = now.toISOString().split('T')[0];
+                      const isToday = p.date === todayStr;
+                      const currentHour = now.getUTCHours();
+                      const isTooEarly = isToday && currentHour < 18;
+                      const shouldBlur = !isLocalEnvironment() && (!p.ready || (isTooEarly && !p.forced_ready));
 
-                    return `Date=${p.date} Ready=${p.ready} Early=${isTooEarly} Blur=${shouldBlur}`;
-                  })()}
+                      return (
+                        <>
+                          <span style={{ color: p.ready ? '#0f0' : '#888' }} title="Server Ready Status">RDY:{p.ready ? 'YES' : 'NO'}</span>
+                          <span style={{ margin: '0 8px', color: '#444' }}>|</span>
+                          <span style={{ color: isTooEarly ? '#ffaa00' : '#888' }} title="Is it before 18:00 UTC?">EARLY:{isTooEarly ? 'YES' : 'NO'}</span>
+                          <span style={{ margin: '0 8px', color: '#444' }}>|</span>
+                          <span style={{ color: shouldBlur ? '#9966ff' : '#444' }} title="Blur Active?">BLUR:{shouldBlur ? 'ON' : 'OFF'}</span>
+                        </>
+                      );
+                    })()}
+                  </span>
                 </div>
               </section>
             )}
