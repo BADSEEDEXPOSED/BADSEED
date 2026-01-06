@@ -1177,7 +1177,24 @@ function App() {
                       {prophecy && (
                         <div className="daily-prophecy">
                           <h4 className="prophecy-heading">🔮 Today's Prophecy</h4>
-                          <p className={`prophecy-text ${(prophecy.ready || isLocalEnvironment()) ? '' : 'prophecy-blur'}`}>
+                          <p className={`prophecy-text ${(() => {
+                            // TIME-BASED BLUR GUARD (Production Only)
+                            // If it's today's prophecy and before 18:00 UTC, FORCE BLUR
+                            // Unless 'forced_ready' is true (manual override by admin)
+                            if (isLocalEnvironment()) return ''; // Always visible locally
+
+                            const now = new Date();
+                            const todayStr = now.toISOString().split('T')[0];
+                            const isToday = prophecy.date === todayStr;
+                            const currentHour = now.getUTCHours();
+                            const isTooEarly = isToday && currentHour < 18;
+
+                            // If not ready OR (too early AND not forced), then blur
+                            if (!prophecy.ready || (isTooEarly && !prophecy.forced_ready)) {
+                              return 'prophecy-blur';
+                            }
+                            return '';
+                          })()}`}>
                             {prophecy.text || 'Awaiting the seed\'s vision...'}
                           </p>
                           {!prophecy.ready && !isLocalEnvironment() && (
@@ -1190,6 +1207,33 @@ function App() {
                     </>
                   );
                 })()}
+
+                {/* DEBUG FOOTER (Discreet) */}
+                <div style={{
+                  marginTop: '20px',
+                  padding: '5px',
+                  borderTop: '1px solid #333',
+                  fontSize: '9px',
+                  color: '#444',
+                  textAlign: 'center',
+                  fontFamily: 'monospace'
+                }}>
+                  DEBUG: {new Date().toISOString()} |
+                  Env: {isLocalEnvironment() ? 'LOCAL' : 'PROD'} |
+                  Prophecy: {(() => {
+                    if (!sentimentData || !sentimentData.prophecy) return 'N/A';
+                    const p = sentimentData.prophecy;
+                    // Logic Replication for Debug
+                    const now = new Date();
+                    const todayStr = now.toISOString().split('T')[0];
+                    const isToday = p.date === todayStr;
+                    const currentHour = now.getUTCHours();
+                    const isTooEarly = isToday && currentHour < 18;
+                    const shouldBlur = !isLocalEnvironment() && (!p.ready || (isTooEarly && !p.forced_ready));
+
+                    return `Date=${p.date} Ready=${p.ready} Early=${isTooEarly} Blur=${shouldBlur}`;
+                  })()}
+                </div>
               </section>
             )}
 
