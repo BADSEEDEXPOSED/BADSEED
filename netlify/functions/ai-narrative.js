@@ -177,6 +177,7 @@ exports.handler = async (event) => {
         // Process each transaction
         const logs = [];
         const sentiments = [];
+        const totalImpact = { hope: 0, greed: 0, fear: 0, mystery: 0 }; // Validation Accumulator
 
         // Load stored logs from JSONBin
         let storedLogs = {};
@@ -282,19 +283,12 @@ exports.handler = async (event) => {
             logs.push(response);
 
             // ----------------------------------------------------------------
-            // DYNAMIC SENTIMENT LOGIC v1.0
-            // Loaded from 'sentiment-config' (Admin Controlled)
-            // ----------------------------------------------------------------
-
-            // Start with AI-detected sentiment
-            const txSentiments = [sentiment];
-
+            // DYNAMIC SENTIMENT LOGIC v2.0 (Weighted)
             try {
-                // Load Rules (Cached or Fresh)
+                // Load Rules
                 const logicStorage = new Storage('sentiment-config');
                 let rules = await logicStorage.get('rules');
 
-                // Fallbacks if Redis is empty or fails
                 if (!rules || !Array.isArray(rules)) {
                     rules = [
                         { condition: "direction:out", effect: "greed", value: 2 },
@@ -305,10 +299,12 @@ exports.handler = async (event) => {
                     ];
                 }
 
+                // AI Base Score
+                if (totalImpact[sentiment] !== undefined) totalImpact[sentiment]++;
+
                 // Evaluate Rules
                 rules.forEach(rule => {
                     let match = false;
-
                     // Condition Parsers
                     if (rule.condition === 'direction:out' && (amount < 0 || tx.direction === 'out')) match = true;
                     if (rule.condition === 'direction:in' && (amount > 0 || tx.direction === 'in')) match = true;
@@ -316,24 +312,26 @@ exports.handler = async (event) => {
                     if (rule.condition === 'memo:exists' && memo) match = true;
                     if (rule.condition === 'ai:mystery' && sentiment === 'mystery') match = true;
 
-                    // Apply Effect
+                    // Apply Weighted Effect
                     if (match) {
-                        const count = rule.value || 1;
-                        for (let i = 0; i < count; i++) txSentiments.push(rule.effect);
+                        const val = parseInt(rule.value); // Allow negative
+                        const effect = rule.effect;
+                        if (!isNaN(val) && totalImpact[effect] !== undefined) {
+                            totalImpact[effect] += val;
+                            // Also push to sentiments list for legacy logging (only if positive)
+                            if (val > 0) {
+                                for (let k = 0; k < val; k++) sentiments.push(effect);
+                            }
+                        }
                     }
                 });
 
             } catch (logicErr) {
                 console.error("Logic Engine Fail:", logicErr);
-                // Emergency Fallback
-                txSentiments.push('mystery');
             }
 
-            // Allow manual "Sol IN" override via simple check if rules failed completely? 
-            // No, the default rules cover it.
-
-            // Push ALL derived sentiments for this transaction
-            sentiments.push(...txSentiments);
+            // Always include base sentiment in list
+            sentiments.push(sentiment);
         }
 
         // Save all new logs to JSONBin
@@ -346,7 +344,7 @@ exports.handler = async (event) => {
 
         return {
             statusCode: 200,
-            body: JSON.stringify({ logs, sentiments }),
+            body: JSON.stringify({ logs, sentiments, totalImpact }),
         };
     } catch (err) {
         console.error("ai-narrative error:", err);

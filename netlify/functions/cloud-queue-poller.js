@@ -268,6 +268,11 @@ exports.handler = async (event, context) => {
             const aiData = JSON.parse(aiResponse.body);
             const aiLog = aiData.logs && aiData.logs[0] ? aiData.logs[0] : "AI Silence...";
 
+            // Apply Sentiment Impact (Weighted)
+            if (aiData.totalImpact) {
+                await applySentimentImpact(aiData.totalImpact);
+            }
+
             // Add to Queue
             const newItem = {
                 id: randomUUID(),
@@ -303,3 +308,33 @@ exports.handler = async (event, context) => {
 exports.config = {
     schedule: "*/10 * * * *" // Run every 10 minutes
 };
+
+// Helper: Apply Sentiment Impact (Handles negatives)
+async function applySentimentImpact(impact) {
+    if (!impact) return;
+    try {
+        const sentimentStorage = new Storage('sentiment-data');
+        let data = await sentimentStorage.get('data') || {
+            sentiments: { hope: 0, greed: 0, fear: 0, mystery: 0 },
+            totalMemos: 0
+        };
+
+        let changed = false;
+        ['hope', 'greed', 'fear', 'mystery'].forEach(k => {
+            if (impact[k] && impact[k] !== 0) {
+                data.sentiments[k] = (data.sentiments[k] || 0) + impact[k];
+                if (data.sentiments[k] < 0) data.sentiments[k] = 0; // Floor at 0
+                changed = true;
+            }
+        });
+
+        if (changed) {
+            data.totalMemos = (data.totalMemos || 0) + 1;
+            data.lastUpdated = new Date().toISOString();
+            await sentimentStorage.set('data', data);
+            console.log('[Cloud Poller] Applied Sentiment Impact:', JSON.stringify(impact));
+        }
+    } catch (e) {
+        console.error('[Cloud Poller] Sentiment Update Failed:', e);
+    }
+}
