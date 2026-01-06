@@ -1303,7 +1303,7 @@ function App() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
                 <div>📤 <strong>Sol OUT:</strong> +2 Greed, +1 Fear</div>
                 <div>📥 <strong>Sol IN:</strong> +2 Hope</div>
-                <div>😶 <strong>No Memo:</strong> +1 Mystery</div>
+                <div>😶 <strong>No Memo:</strong> -1 Mystery</div>
                 <div>🤖 <strong>AI Undecided:</strong> +1 Mystery</div>
                 <div style={{ gridColumn: 'span 2', marginTop: '2px', fontStyle: 'italic', color: '#888' }}>
                   * Mystery resets to 0% daily on Prophecy Reveal

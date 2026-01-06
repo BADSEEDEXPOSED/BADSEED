@@ -77,22 +77,38 @@ exports.handler = async (event, context) => {
 
         console.log('[Prophecy Reveal] Prophecy unblurred');
 
-        // Post to X.com
+        // Post to X.com (with Retry Logic)
         const tweetText = `🔮 BADSEED DAILY PROPHECY 🔮\n\n${prophecy.text}\n\n📊 Dominant energy: ${prophecy.dominant?.toUpperCase() || 'MYSTERY'}\n\n#BADSEED #Solana #Crypto`;
 
-        try {
-            const postResult = await postToX(tweetText);
-            console.log('[Prophecy Reveal] Posted to X:', postResult);
+        let postSuccess = false;
+        let lastError = "";
 
-            data.prophecy.postedAt = new Date().toISOString();
-            data.prophecy.tweetId = postResult.id;
-            data.prophecy.x_post_status = 'posted'; // [NEW] Success
+        for (let attempt = 1; attempt <= 3; attempt++) {
+            try {
+                console.log(`[Prophecy Reveal] Posting to X (Attempt ${attempt}/3)...`);
+                const postResult = await postToX(tweetText);
+                console.log('[Prophecy Reveal] Posted to X:', postResult);
+
+                data.prophecy.postedAt = new Date().toISOString();
+                data.prophecy.tweetId = postResult.id || postResult.data?.id;
+                data.prophecy.x_post_status = 'posted';
+                await storage.set('data', data);
+                postSuccess = true;
+                break; // Success!
+
+            } catch (postError) {
+                console.error(`[Prophecy Reveal] Attempt ${attempt} failed:`, postError.message);
+                lastError = postError.message;
+                if (attempt < 3) await new Promise(r => setTimeout(r, 2000)); // Wait 2s
+            }
+        }
+
+        if (!postSuccess) {
+            console.error('[Prophecy Reveal] CRITICAL: All 3 attempts to post failed.');
+            data.prophecy.x_post_status = 'failed';
+            data.prophecy.last_post_error = lastError;
             await storage.set('data', data);
-        } catch (postError) {
-            console.error('[Prophecy Reveal] Failed to post:', postError.message);
-            data.prophecy.x_post_status = 'failed'; // [NEW] Failure
-            await storage.set('data', data); // Save the failure status
-            // Don't fail the whole function, prophecy is still revealed
+            // Consider alerting God Node via error log?
         }
 
         return {

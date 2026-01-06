@@ -47,9 +47,11 @@ async function generateProphecy(force = false) {
         const today = new Date().toISOString().split('T')[0];
 
         // Check if prophecy already generated today
-        if (!force && data.prophecy && data.prophecy.date === today && data.prophecy.text) {
-            console.log('[Prophecy Logic] Already generated for today');
-            return { skipped: true, message: 'Already generated', prophecy: data.prophecy };
+        // [MODIFIED] User Request: ALWAYS generate a fresh prophecy daily, regardless of activity/persistence.
+        // We will overwrite the existing one if it exists.
+        if (data.prophecy && data.prophecy.date === today && data.prophecy.text) {
+            console.log('[Prophecy Logic] Prophecy exists for today. Overwriting with FRESH generation as per directive.');
+            // Proceed to generate...
         }
 
         // Find dominant sentiment
