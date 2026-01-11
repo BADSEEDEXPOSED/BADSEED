@@ -111,6 +111,14 @@ exports.handler = async (event, context) => {
             // Consider alerting God Node via error log?
         }
 
+        // SUCCESS HEARTBEAT
+        try {
+            let logData = await storage.get('system_logs') || {};
+            logData.last_successful_reveal = new Date().toISOString();
+            logData.last_reveal_date = today;
+            await storage.set('system_logs', logData);
+        } catch (e) { }
+
         return {
             statusCode: 200,
             body: JSON.stringify({

@@ -46,12 +46,19 @@ async function generateProphecy(force = false) {
 
         const today = new Date().toISOString().split('T')[0];
 
+        // HEARTBEAT: Log this run attempt
+        try {
+            let logData = await storage.get('system_logs') || {};
+            logData.last_generation_attempt = new Date().toISOString();
+            logData.last_generation_date = today;
+            await storage.set('system_logs', logData);
+        } catch (e) {
+            console.warn('[Prophecy Logic] Heartbeat log failed:', e.message);
+        }
+
         // Check if prophecy already generated today
-        // [MODIFIED] User Request: ALWAYS generate a fresh prophecy daily, regardless of activity/persistence.
-        // We will overwrite the existing one if it exists.
         if (data.prophecy && data.prophecy.date === today && data.prophecy.text) {
             console.log('[Prophecy Logic] Prophecy exists for today. Overwriting with FRESH generation as per directive.');
-            // Proceed to generate...
         }
 
         // Find dominant sentiment
@@ -144,6 +151,13 @@ Task: Write a cryptic, atmospheric prophecy (max 280 chars) that reflects this E
         };
 
         await storage.set('data', data);
+
+        // SUCCESS HEARTBEAT
+        try {
+            let logData = await storage.get('system_logs') || {};
+            logData.last_successful_generation = new Date().toISOString();
+            await storage.set('system_logs', logData);
+        } catch (e) { }
 
         console.log('[Prophecy Logic] Generated:', dominant, prophecyText.substring(0, 50));
 

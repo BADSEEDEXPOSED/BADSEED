@@ -10,7 +10,8 @@ async function checkProphecy() {
     });
 
     try {
-        const data = await redis.get('data'); // The key used in prophecy-reveal.js and storage.js
+        const dataStr = await redis.get('sentiment-data:data');
+        const data = typeof dataStr === 'string' ? JSON.parse(dataStr) : dataStr;
         console.log("--- DB CONNECTION SUCCESS ---");
         console.log("DB URL (Partial):", process.env.UPSTASH_REDIS_REST_URL.substring(0, 20) + "...");
 
