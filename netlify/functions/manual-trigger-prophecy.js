@@ -44,6 +44,16 @@ exports.handler = async (event, context) => {
 
     console.log('[Manual Prophecy Trigger] Invoked at', new Date().toISOString());
 
+    // HEARTBEAT: Log this run (especially for Guardian monitoring)
+    try {
+        const { Storage } = require('./lib/storage');
+        const storage = new Storage('sentiment-data');
+        let logData = await storage.get('system_logs') || {};
+        logData.last_manual_trigger = new Date().toISOString();
+        logData.trigger_source = 'guardian_or_admin';
+        await storage.set('system_logs', logData);
+    } catch (e) { }
+
     try {
         const { generateProphecy } = require('./lib/prophecy-logic'); // Import shared logic
         const { Storage } = require('./lib/storage');
