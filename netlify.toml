@@ -10,4 +10,13 @@
 [build.environment]
   REACT_APP_SOLANA_RPC_HOST = "https://mainnet.helius-rpc.com/?api-key=273e36fb-f6f8-4556-8166-a2299b594197"
 
+[functions.prophecy-generate]
+  schedule = "0 0 * * *"
+
+[functions.prophecy-reveal]
+  schedule = "0 18 * * *"
+
+[functions.archive-daily]
+  schedule = "0 23 * * *"
+
 

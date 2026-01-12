@@ -105,8 +105,6 @@ server.tool("trigger_prophecy_generation", {
 // --------------------------------------------------------------------------
 // TOOL: trigger_prophecy_reveal
 // Purpose: Manually reveal the prophecy (simulate 18:00 UTC)
-// Note: This logic is usually in prophecy-reveal.js, so we import the logic if possible
-// or reproduce the critical reveal step (setting ready=true).
 // --------------------------------------------------------------------------
 server.tool("trigger_prophecy_reveal", {}, async () => {
   try {
@@ -136,6 +134,51 @@ server.tool("trigger_prophecy_reveal", {}, async () => {
     };
   }
 });
+
+// --------------------------------------------------------------------------
+// TOOL: get_system_health
+// Purpose: Returns the health and heartbeat status of the automated cloud functions.
+// --------------------------------------------------------------------------
+server.tool("get_system_health", {}, async () => {
+  try {
+    const logs = await storage.get('system_logs') || {};
+    const data = await storage.get('data') || {};
+
+    const health = {
+      last_generation_attempt: logs.last_generation_attempt || "NEVER",
+      last_successful_generation: logs.last_successful_generation || "NEVER",
+      last_successful_reveal: logs.last_successful_reveal || "NEVER",
+      x_post_status: data.prophecy?.x_post_status || "unknown",
+      last_error: data.last_error || "None",
+      system_status: data.system_status || "nominal"
+    };
+
+    return {
+      content: [{ type: "text", text: JSON.stringify(health, null, 2) }]
+    };
+  } catch (err) {
+    return { content: [{ type: "text", text: "Error fetching health: " + err.message }] };
+  }
+});
+
+// --------------------------------------------------------------------------
+// TOOL: ping_cloud_automation
+// Purpose: Pokes the cloud endpoint to verify connectivity
+// --------------------------------------------------------------------------
+server.tool("ping_cloud_automation", {}, async () => {
+  try {
+    const response = await fetch("https://badseed.exposed/.netlify/functions/prophecy-get");
+    const status = response.status;
+    const data = await response.json();
+
+    return {
+      content: [{ type: "text", text: `CLOUD RESPONSE (${status}):\n${JSON.stringify(data, null, 2)}` }]
+    };
+  } catch (err) {
+    return { content: [{ type: "text", text: "Cloud connectivity failed: " + err.message }] };
+  }
+}
+);
 
 async function main() {
   const transport = new StdioServerTransport();
