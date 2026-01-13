@@ -14,6 +14,16 @@ const DEFAULT_CONFIG = {
 };
 
 exports.handler = async (event) => {
+    const headers = {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type',
+        'Content-Type': 'application/json'
+    };
+
+    if (event.httpMethod === 'OPTIONS') {
+        return { statusCode: 200, headers, body: '' };
+    }
+
     try {
         const storage = new Storage('dapp-config');
 
@@ -22,7 +32,7 @@ exports.handler = async (event) => {
             const config = await storage.get('config') || DEFAULT_CONFIG;
             return {
                 statusCode: 200,
-                headers: { "Content-Type": "application/json" },
+                headers,
                 body: JSON.stringify(config)
             };
         }
@@ -43,13 +53,14 @@ exports.handler = async (event) => {
 
             return {
                 statusCode: 200,
-                headers: { "Content-Type": "application/json" },
+                headers,
                 body: JSON.stringify(newConfig)
             };
         }
 
         return {
             statusCode: 405,
+            headers,
             body: JSON.stringify({ error: "Method Not Allowed" })
         };
 
@@ -57,6 +68,7 @@ exports.handler = async (event) => {
         console.error("DApp Config Error:", error);
         return {
             statusCode: 500,
+            headers,
             body: JSON.stringify({ error: "Internal Server Error" })
         };
     }
