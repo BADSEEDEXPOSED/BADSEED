@@ -82,12 +82,27 @@ SENTIMENT: [hope/greed/fear/mystery]
 RESPONSE: [your response with emojis]`
 };
 
+// Helper to get DApp Config
+async function getDappConfig() {
+    try {
+        const storage = new Storage('dapp-config');
+        return await storage.get('config') || { systemMetadata: {}, activePersona: null };
+    } catch (e) {
+        return { systemMetadata: {}, activePersona: null };
+    }
+}
+
 // Detect which identity to use based on memo content
-function detectIdentity(memo) {
+async function detectIdentity(memo) {
+    // Check for Brain Node Override First
+    const config = await getDappConfig();
+    if (config.activePersona) {
+        console.log(`[AI] Brain Node Override: Using ${config.activePersona}`);
+        return config.activePersona;
+    }
+
     if (!memo) return 'ANCIENT_SEED';
-
     const lower = memo.toLowerCase();
-
     // Priority: Corrupted > Parasite > Ancient (default)
     if (/error|glitch|corrupt|broken|help|fix|bug/i.test(memo)) {
         return 'CORRUPTED_GARDEN';
@@ -201,8 +216,8 @@ exports.handler = async (event) => {
                 continue;
             }
 
-            // Detect identity
-            const identity = detectIdentity(memo);
+            // Detect identity (NOW ASYNC)
+            const identity = await detectIdentity(memo);
 
             // Check for easter egg
             const easterEggResponse = checkEasterEgg(memo, identity);
@@ -216,7 +231,8 @@ exports.handler = async (event) => {
                 continue;
             }
 
-            // Build context-aware prompt
+            // Build context-aware prompt (Include Brain Metadata)
+            const config = await getDappConfig();
             const prompt = buildPrompt(identity, {
                 memo,
                 amount,
@@ -224,7 +240,8 @@ exports.handler = async (event) => {
                 todayCount,
                 totalCount: todayCount,
                 balanceSol,
-                tx
+                tx,
+                systemMetadata: config.systemMetadata || {}
             });
 
             // Check for OpenAI API key
@@ -356,7 +373,7 @@ exports.handler = async (event) => {
 };
 
 function buildPrompt(identity, context) {
-    const { memo, amount, hour, todayCount, totalCount, balanceSol, tx } = context;
+    const { memo, amount, hour, todayCount, totalCount, balanceSol, tx, systemMetadata } = context;
 
     const basePrompt = IDENTITY_PROMPTS[identity];
 
@@ -376,7 +393,10 @@ function buildPrompt(identity, context) {
 - This is transmission #${totalCount} overall
 - Transaction amount: ${amount} SOL
 - Current hour: ${hour} (0-23)${moodModifier}${timeModifier}
-- Wallet balance: ${balanceSol ? balanceSol.toFixed(4) : 'unknown'} SOL`;
+- Wallet balance: ${balanceSol ? balanceSol.toFixed(4) : 'unknown'} SOL
+- Real-time Token Price: ${systemMetadata?.price_sol || 'unknown'} SOL
+- Market Cap: ${systemMetadata?.market_cap_sol || 'unknown'} SOL
+- Curve Progress: ${(systemMetadata?.curve_progress * 100)?.toFixed(1) || 'unknown'}%`;
 
     let memoInstructions = '';
     if (memo) {

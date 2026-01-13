@@ -8,6 +8,8 @@ const DEFAULT_CONFIG = {
     destinationWallet: "CZ7Lv3QNVxbBivGPBhJG7m1HpCtfEDjEusBjjZ3qmVz5",
     targetMint: "3HPpMLK7LjKFqSnCsBYNiijhNTo7dkkx3FCSAHKSpump",
     isSweepEnabled: true,
+    systemMetadata: {}, // For Brain Node to push real stats
+    activePersona: null, // To allow Brain Node to override identity
     lastUpdated: new Date().toISOString()
 };
 
