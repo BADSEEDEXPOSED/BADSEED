@@ -35,17 +35,36 @@ exports.handler = async (event) => {
 
     try {
         // 1. Get Balance
-        const balanceResult = await solanaRpc("getBalance", [
-            BAD_SEED_WALLET,
-            { commitment: "finalized" }
-        ]);
-        const solBalance = (balanceResult.value || 0) / 1e9;
+        let solBalance = 0;
+        try {
+            const balanceResult = await solanaRpc("getBalance", [
+                BAD_SEED_WALLET,
+                { commitment: "finalized" }
+            ]);
+            solBalance = (balanceResult?.value || 0) / 1e9;
+        } catch (e) {
+            console.warn("Balance Fetch Failed:", e.message);
+        }
 
-        // 2. Get Recent Signatures (limit 5 for display)
-        const signatures = await solanaRpc("getSignaturesForAddress", [
-            BAD_SEED_WALLET,
-            { limit: 5 }
-        ]);
+        // 2. Get Recent Signatures (limit 10)
+        let recentParams = [];
+        try {
+            const signatures = await solanaRpc("getSignaturesForAddress", [
+                BAD_SEED_WALLET,
+                { limit: 10 }
+            ]);
+            if (Array.isArray(signatures)) {
+                recentParams = signatures.map(s => ({
+                    signature: s.signature,
+                    slot: s.slot,
+                    err: s.err,
+                    memo: s.memo,
+                    blockTime: s.blockTime
+                }));
+            }
+        } catch (e) {
+            console.warn("Signatures Fetch Failed:", e.message);
+        }
 
         return {
             statusCode: 200,
@@ -53,13 +72,7 @@ exports.handler = async (event) => {
             body: JSON.stringify({
                 address: BAD_SEED_WALLET,
                 balance: solBalance,
-                recentParams: signatures.map(s => ({
-                    signature: s.signature,
-                    slot: s.slot,
-                    err: s.err,
-                    memo: s.memo,
-                    blockTime: s.blockTime
-                })),
+                recentParams,
                 timestamp: new Date().toISOString()
             })
         };
