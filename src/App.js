@@ -277,6 +277,28 @@ function App() {
     fetchConfig();
   }, []);
 
+  // Track wallet connections for analytics
+  useEffect(() => {
+    if (publicKey) {
+      const trackWallet = async () => {
+        try {
+          await fetch('/.netlify/functions/analytics-track', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              walletAddress: publicKey.toString(),
+              eventType: 'wallet_connect'
+            })
+          });
+          console.log('Wallet connection tracked');
+        } catch (error) {
+          console.warn('Analytics tracking failed:', error);
+        }
+      };
+      trackWallet();
+    }
+  }, [publicKey]);
+
   // Effect to trigger pulse when modal opens
   useEffect(() => {
     if (showSendModal) {
