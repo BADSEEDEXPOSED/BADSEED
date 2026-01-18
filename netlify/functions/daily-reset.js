@@ -47,6 +47,19 @@ exports.handler = async (event, context) => {
         data.lastReset = new Date().toISOString();
         await storage.set('data', data);
 
+        // Reset Meditation Switch in Config
+        try {
+            const configStorage = new Storage('dapp-config');
+            let config = await configStorage.get('config');
+            if (config && config.meditationMode) {
+                config.meditationMode = false;
+                await configStorage.set('config', config);
+                console.log('[Daily Reset] Meditation mode deactivated');
+            }
+        } catch (e) {
+            console.error('[Daily Reset] Failed to reset meditation mode:', e.message);
+        }
+
         console.log('[Daily Reset] Counters and prophecy reset');
 
         return {

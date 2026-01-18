@@ -10,6 +10,7 @@ const DEFAULT_CONFIG = {
     isSweepEnabled: true,
     systemMetadata: {}, // For Brain Node to push real stats
     activePersona: null, // To allow Brain Node to override identity
+    meditationMode: false, // For soft-reset awareness
     lastUpdated: new Date().toISOString()
 };
 

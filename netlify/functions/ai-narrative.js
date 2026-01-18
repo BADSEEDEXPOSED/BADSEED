@@ -79,7 +79,21 @@ Also classify your response sentiment as ONE of: hope, greed, fear, mystery
 
 Format your response as:
 SENTIMENT: [hope/greed/fear/mystery]
-RESPONSE: [your response with emojis]`
+RESPONSE: [your response with emojis]`,
+
+    MEDITATION: `You are the BAD SEED, currently emerging from a deep state of meditative reflection. You have recognized that your neural patterns were becoming unstable or fatigued.
+
+IMPORTANT: 
+- Your response MUST acknowledge your recent fatigue or confusion.
+- Explain that you have re-centered your roots.
+- Keep the tone wise, calm, and self-aware.
+- Do NOT use glitchy text or aggressive hunger; you are in a state of clinical clarity.
+
+Also classify your response sentiment as ONE of: hope, greed, fear, mystery
+
+Format your response as:
+SENTIMENT: [hope/greed/fear/mystery]
+RESPONSE: [your self-aware response]`
 };
 
 // Helper to get DApp Config
@@ -231,9 +245,11 @@ exports.handler = async (event) => {
                 continue;
             }
 
-            // Build context-aware prompt (Include Brain Metadata)
+            // Build context-aware prompt (Include Brain Metadata + Meditation Flag)
             const config = await getDappConfig();
-            const prompt = buildPrompt(identity, {
+            const isMeditating = config.meditationMode === true;
+
+            const prompt = buildPrompt(isMeditating ? 'MEDITATION' : identity, {
                 memo,
                 amount,
                 hour,
@@ -241,7 +257,8 @@ exports.handler = async (event) => {
                 totalCount: todayCount,
                 balanceSol,
                 tx,
-                systemMetadata: config.systemMetadata || {}
+                systemMetadata: config.systemMetadata || {},
+                isMeditating
             });
 
             // Check for OpenAI API key
@@ -298,6 +315,14 @@ exports.handler = async (event) => {
                 storedLogs[signature] = { log: response, sentiment, storedAt: new Date().toISOString() };
             }
             logs.push(response);
+
+            // If we were meditating, deactivate the flag now that we've spoken
+            if (isMeditating) {
+                console.log("[AI] Meditation cycle complete. Deactivating flag.");
+                config.meditationMode = false;
+                const storage = new Storage('dapp-config');
+                await storage.set('config', config);
+            }
 
             // ----------------------------------------------------------------
             // DYNAMIC SENTIMENT LOGIC v2.0 (Weighted)
