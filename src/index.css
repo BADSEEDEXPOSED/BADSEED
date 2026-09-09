@@ -54,6 +54,14 @@ body::before {
   height: 120px;
   /* 1:1 ratio */
   object-fit: contain;
+  border-radius: 14px;
+  background: radial-gradient(ellipse at center,
+      rgba(192, 192, 192, 0.1) 0%,
+      rgba(192, 192, 192, 0.035) 58%,
+      transparent 78%);
+  box-shadow:
+    inset 0 0 14px rgba(192, 192, 192, 0.12),
+    0 0 14px rgba(192, 192, 192, 0.1);
   filter: drop-shadow(0 0 18px rgba(192, 192, 192, 0.45));
   animation: logoGlowPulse 3s ease-in-out infinite;
 }
