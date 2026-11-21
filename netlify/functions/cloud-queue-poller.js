@@ -13,6 +13,7 @@ const storage = new Storage('queue-data');
 
 // Configuration
 const BAD_SEED_WALLET = "9TyzcephhXEw67piYNc72EJtgVmbq3AZhyPFSvdfXWdr";
+const BAD_SEED_MINT = "3HPpMLK7LjKFqSnCsBYNiijhNTo7dkkx3FCSAHKSpump";
 // Hardcoded Blacklist (Synced from App.js)
 const BLACKLIST = [
     "EZvp2MfKaqZ14D95EMSECXfGqduScMCSUzpKSxBcNTzM",
@@ -228,16 +229,30 @@ exports.handler = async (event, context) => {
             // It expects: { signature, memo, amount, direction ... }
             // We need to extract Amount/Direction from detail
             let amount = 0;
+            let tokenAmount = 0;
+            let tokenSymbol = 'SOL';
             let direction = 'unknown';
 
-            // Simplified Amount Parsing (SOL)
             if (item.detail && item.detail.meta) {
+                // 1. Check $BADSEED SPL token delta first (auto-activates when token launches)
+                const preTok = (item.detail.meta.preTokenBalances || []).find(b => b.mint === BAD_SEED_MINT && b.owner === BAD_SEED_WALLET);
+                const postTok = (item.detail.meta.postTokenBalances || []).find(b => b.mint === BAD_SEED_MINT && b.owner === BAD_SEED_WALLET);
+                const preUi = Number(preTok?.uiTokenAmount?.uiAmount || 0);
+                const postUi = Number(postTok?.uiTokenAmount?.uiAmount || 0);
+                const tokDiff = postUi - preUi;
+                if (tokDiff !== 0) {
+                    tokenAmount = Math.abs(tokDiff);
+                    tokenSymbol = 'BADSEED';
+                    direction = tokDiff > 0 ? 'in' : 'out';
+                }
+
+                // 2. Also measure SOL balance delta
                 const accountIndex = item.detail.transaction.message.accountKeys.findIndex(k => (k.pubkey || k) === BAD_SEED_WALLET);
                 if (accountIndex !== -1) {
                     const diff = item.detail.meta.postBalances[accountIndex] - item.detail.meta.preBalances[accountIndex];
                     if (diff !== 0) {
                         amount = Math.abs(diff / 1e9);
-                        direction = diff > 0 ? 'in' : 'out';
+                        if (direction === 'unknown') direction = diff > 0 ? 'in' : 'out';
                     }
                 }
             }
@@ -247,6 +262,8 @@ exports.handler = async (event, context) => {
                     signature: item.signature,
                     memo: item.memo,
                     amount: amount,
+                    tokenAmount: tokenAmount,
+                    tokenSymbol: tokenSymbol,
                     direction: direction,
                     blockTime: item.blockTime / 1000
                 }]

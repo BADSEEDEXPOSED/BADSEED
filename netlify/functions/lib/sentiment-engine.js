@@ -57,7 +57,11 @@ function calculateImpact(transaction, aiSentiment = 'mystery', rules = []) {
 
     // Value and direction are public behaviour signals, with large movements
     // carrying more weight while avoiding a single transfer dominating a day.
-    const scale = amount >= 1 ? 2 : amount >= 0.1 ? 1 : 0;
+    // Supports both SOL transfers and $BADSEED SPL token transfers once launched.
+    const tokenAmount = Math.abs(Number(transaction.tokenAmount) || 0);
+    const solScale = amount >= 1 ? 2 : amount >= 0.1 ? 1 : 0;
+    const tokenScale = tokenAmount >= 100000 ? 2 : tokenAmount >= 10000 ? 1 : 0;
+    const scale = Math.max(solScale, tokenScale);
     if (direction === 'in') add(impact, 'hope', 1 + scale);
     if (direction === 'out') {
         add(impact, 'greed', 1 + scale);
