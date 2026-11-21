@@ -40,6 +40,43 @@ function cleanProphecyText(raw) {
     return text.length >= 20 ? text : '';
 }
 
+async function callGrok(apiKey, prompt) {
+    const models = ['grok-3', 'grok-3-mini'];
+    let lastError = 'No xAI Grok models succeeded';
+    for (const model of models) {
+        try {
+            const completion = await fetch('https://api.x.ai/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`,
+                },
+                signal: AbortSignal.timeout(15000),
+                body: JSON.stringify({
+                    model,
+                    messages: [
+                        { role: 'system', content: 'You are The Bad Seed, an ancient cryptographic oracle. Reply with ONLY one original, cryptic prophecy sentence (under 190 characters). No preface, no quotes, no percentages, no hashtags, no emoji.' },
+                        { role: 'user', content: prompt }
+                    ],
+                    temperature: 0.9,
+                    max_tokens: 140,
+                }),
+            });
+            if (!completion.ok) {
+                lastError = `xAI ${model} HTTP ${completion.status}`;
+                continue;
+            }
+            const json = await completion.json();
+            const cleaned = cleanProphecyText(json.choices?.[0]?.message?.content);
+            if (cleaned) return { text: cleaned, model };
+            lastError = `xAI ${model} empty completion`;
+        } catch (err) {
+            lastError = `xAI ${model}: ${err.message}`;
+        }
+    }
+    throw new Error(lastError);
+}
+
 async function callOpenRouter(apiKey, prompt) {
     const models = [
         process.env.OPENROUTER_MODEL,
@@ -166,18 +203,32 @@ async function generateProphecy(force = false) {
         const seed = Math.floor(Math.random() * 100000);
         const prompt = `Date ${today}; variation ${seed}. Dominant energy: ${dominant} (hope ${percentages.hope}%, greed ${percentages.greed}%, fear ${percentages.fear}%, mystery ${percentages.mystery}%). Speak today's prophecy.`;
 
+        const xaiKey = process.env.XAI_API_KEY;
         const openRouterKey = process.env.OPENROUTER_API_KEY || (process.env.OPENAI_API_KEY?.startsWith('sk-or-') ? process.env.OPENAI_API_KEY : null);
         const openAiKey = process.env.OPENAI_API_KEY && !process.env.OPENAI_API_KEY.startsWith('sk-or-') ? process.env.OPENAI_API_KEY : null;
 
-        if (openRouterKey) {
+        if (xaiKey) {
+            try {
+                const res = await callGrok(xaiKey, prompt);
+                prophecyText = res.text;
+                generationSource = 'ai';
+                generationModel = res.model;
+            } catch (err) {
+                console.warn('[Prophecy Logic] xAI Grok failed:', err.message);
+                generationError = err.message;
+            }
+        }
+
+        if (!prophecyText && openRouterKey) {
             try {
                 const res = await callOpenRouter(openRouterKey, prompt);
                 prophecyText = res.text;
                 generationSource = 'ai';
                 generationModel = res.model;
+                generationError = null;
             } catch (err) {
                 console.warn('[Prophecy Logic] OpenRouter chain failed:', err.message);
-                generationError = err.message;
+                generationError = (generationError ? generationError + '; ' : '') + err.message;
             }
         }
 
