@@ -229,10 +229,8 @@ export default {
       tasks.push(runLocal('prophecy-reveal'));
     }
 
-    // 23:00 UTC: Daily archive
-    if (hour === 23 && minute === 0) {
-      tasks.push(runLocal('archive-daily'));
-    }
+    // 23:55 UTC daily Arweave archive runs via GitHub Actions (.github/workflows/daily-arweave-archive.yml)
+    // using real Node.js + @irys/sdk against https://uploader.irys.xyz.
 
     ctx.waitUntil(Promise.allSettled(tasks));
   },

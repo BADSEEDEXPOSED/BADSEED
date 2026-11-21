@@ -1,0 +1,26 @@
+name: Daily Arweave Archive
+
+on:
+  schedule:
+    - cron: '55 23 * * *'
+  workflow_dispatch:
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install archive dependencies
+        run: npm install --no-save @irys/sdk @solana/web3.js bs58 bip39 ed25519-hd-key
+      - name: Run daily Arweave archive
+        env:
+          UPSTASH_REDIS_REST_URL: ${{ secrets.UPSTASH_REDIS_REST_URL }}
+          UPSTASH_REDIS_REST_TOKEN: ${{ secrets.UPSTASH_REDIS_REST_TOKEN }}
+          BADSEED_WALLET_PRIVATE_KEY: ${{ secrets.BADSEED_WALLET_PRIVATE_KEY }}
+          XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          REACT_APP_SOLANA_RPC_HOST: https://mainnet.helius-rpc.com/?api-key=273e36fb-f6f8-4556-8166-a2299b594197
+        run: node -e "require('./netlify/functions/archive-daily.js').handler({}, {}).then(r => { console.log(r); if (r.statusCode !== 200) process.exit(1); })"

@@ -21,7 +21,7 @@ const queueStorage = new Storage('queue-data');
 
 // Constants
 const SOLANA_RPC = "https://mainnet.helius-rpc.com/?api-key=65cfa9f7-7bfe-44ff-8e98-24ff80b01e8c"; // Helius Mainnet
-const IRYS_NODE = "https://node1.irys.xyz"; // Mainnet
+const IRYS_NODE = "https://uploader.irys.xyz"; // Mainnet
 
 const bs58 = require('bs58');
 

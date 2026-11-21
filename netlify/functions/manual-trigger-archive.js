@@ -18,7 +18,7 @@ const queueStorage = new Storage('queue-data');
 // Constants
 // Use reliable Helius RPC (same as App.js) to avoid rate limits
 const SOLANA_RPC = "https://mainnet.helius-rpc.com/?api-key=65cfa9f7-7bfe-44ff-8e98-24ff80b01e8c";
-const IRYS_NODE = "https://node1.irys.xyz";
+const IRYS_NODE = "https://uploader.irys.xyz";
 
 exports.handler = async (event, context) => {
     // CORS Headers
