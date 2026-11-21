@@ -1,4 +1,5 @@
 const { Storage } = require('./lib/storage');
+const { applyImpact } = require('./lib/sentiment-state');
 
 const storage = new Storage('sentiment-data');
 
@@ -27,10 +28,7 @@ exports.handler = async (event) => {
             prophecy: { text: '', date: '' }
         };
 
-        // Update sentiment
-        data.sentiments[sentiment]++;
-        data.totalMemos++;
-        data.lastUpdated = new Date().toISOString();
+        applyImpact(data, { [sentiment]: 1 });
 
         // Save updated data
         await storage.set('data', data);

@@ -15,17 +15,42 @@ const BAD_SEED_WALLET_ADDRESS = "9TyzcephhXEw67piYNc72EJtgVmbq3AZhyPFSvdfXWdr";
 // Memo program ID
 const MEMO_PROGRAM_ID = new PublicKey("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr");
 
+// Deliberately small, local icon system.  BADSEED does not use emoji as UI.
+function Glyph({ name, label }) {
+  const paths = {
+    copy: <><rect x="8" y="8" width="10" height="10" rx="1" /><path d="M6 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1" /></>,
+    archive: <><path d="M4 7h16v13H4z" /><path d="M3 3h18v4H3zM9 11h6" /></>,
+    signal: <><path d="M4 18a8 8 0 0 1 16 0" /><path d="M7 18a5 5 0 0 1 10 0M10 18a2 2 0 0 1 4 0" /><circle cx="12" cy="18" r="1" /></>,
+    pulse: <><path d="M3 12h4l2-5 4 10 2-5h6" /></>,
+    eye: <><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" /><circle cx="12" cy="12" r="2.5" /></>,
+    warning: <><path d="M12 3 2.8 20h18.4L12 3Z" /><path d="M12 9v5M12 17h.01" /></>,
+    external: <><path d="M14 4h6v6" /><path d="m20 4-9 9" /><path d="M19 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5" /></>,
+    chevron: <path d="m9 18 6-6-6-6" />,
+    status: <><circle cx="12" cy="12" r="7" /><circle cx="12" cy="12" r="2" /></>,
+  };
+  return <svg className="glyph" viewBox="0 0 24 24" role={label ? "img" : undefined} aria-label={label} aria-hidden={label ? undefined : true} fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">{paths[name] || paths.status}</svg>;
+}
+
 // ---------- localStorage cache helpers ----------
+function isUsableAiLog(log) {
+  return typeof log === 'string' && !!log.trim() && log.length <= 300 && !/your response|I'll output|I need to|instruction|format expects|sentiment classification/i.test(log) &&
+    !/AI\s+(?:call\s+failed|key\s+not\s+configured|endpoint\s+unavailable|format\s+error|log\s+missing|connection\s+failed|unavailable|silence)|awaiting interpretation/i.test(log);
+}
+
 function getCachedLog(signature) {
   try {
     const cached = localStorage.getItem(`badseed_ai_log_${signature}`);
-    return cached ? JSON.parse(cached) : null;
+    const log = cached ? JSON.parse(cached) : null;
+    if (isUsableAiLog(log)) return log;
+    if (cached) localStorage.removeItem(`badseed_ai_log_${signature}`);
+    return null;
   } catch (e) {
     return null;
   }
 }
 
 function saveCachedLog(signature, log) {
+  if (!isUsableAiLog(log)) return;
   try {
     localStorage.setItem(`badseed_ai_log_${signature}`, JSON.stringify(log));
   } catch (e) {
@@ -98,6 +123,54 @@ function decodeSeedPhrase(encoded) {
     console.warn("Failed to decode seed phrase:", e);
     return "";
   }
+}
+
+// ===========================
+// Helper: Extract bracket number from memo
+// Memos contain character count in format [N] e.g. "Hello world [11]"
+// ===========================
+function extractMemoCharCount(memo) {
+  if (!memo) return 0;
+  // Match [number] pattern - typically at the end of memo
+  const match = memo.match(/\[(\d+)\]/);
+  if (match && match[1]) {
+    return parseInt(match[1], 10);
+  }
+  return 0;
+}
+
+// ===========================
+// Helper: Get UTC day boundaries
+// ===========================
+function getUtcDayBoundaries() {
+  const now = new Date();
+  // Start of current UTC day (00:00:00 UTC)
+  const startOfDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
+  // End of current UTC day (23:59:59.999 UTC)
+  const endOfDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
+  return { startOfDay, endOfDay };
+}
+
+// ===========================
+// Helper: Calculate daily memo count from transactions
+// ===========================
+function calculateDailyMemoCount(transactions) {
+  const { startOfDay, endOfDay } = getUtcDayBoundaries();
+  let total = 0;
+
+  transactions.forEach(tx => {
+    if (!tx.blockTime || !tx.memo) return;
+
+    // Convert blockTime (Unix timestamp in seconds) to Date
+    const txTime = new Date(tx.blockTime * 1000);
+
+    // Check if transaction is within current UTC day
+    if (txTime >= startOfDay && txTime <= endOfDay) {
+      total += extractMemoCharCount(tx.memo);
+    }
+  });
+
+  return total;
 }
 
 // ===========================
@@ -180,34 +253,6 @@ async function fetchAiLogsForTransactions(transactions, balanceSol, walletAddres
       );
     }
 
-    // Process sentiments if provided
-    if (data.sentiments && Array.isArray(data.sentiments)) {
-      // Update sentiment for each non-empty sentiment
-      for (const sentiment of data.sentiments) {
-        if (sentiment && ['hope', 'greed', 'fear', 'mystery'].includes(sentiment)) {
-          try {
-            const sentRes = await fetch('/.netlify/functions/sentiment-update', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ sentiment })
-            });
-            if (!sentRes.ok) {
-              const errText = await sentRes.text();
-              console.error('Sentiment update failed:', sentRes.status, errText);
-            } else {
-              const sentData = await sentRes.json();
-              if (sentData.binId) {
-                console.warn("🚨 SAVE THIS TO NETLIFY ENV VARS 🚨");
-                console.log("SENTIMENT_BIN_ID=" + sentData.binId);
-              }
-            }
-          } catch (err) {
-            console.error('Failed to update sentiment:', err);
-          }
-        }
-      }
-    }
-
     // Normalize logs to match transaction count
     return transactions.map((_, idx) => {
       return typeof data.logs[idx] === "string"
@@ -254,6 +299,9 @@ function App() {
   // Sentiment & Prophecy state
   const [sentimentData, setSentimentData] = useState(null);
   const [prophecy, setProphecy] = useState(null);
+
+  // Daily memo character count (sum of [N] bracket numbers for current UTC day)
+  const [dailyMemoCount, setDailyMemoCount] = useState(0);
 
   function triggerLogoPulse() {
     setLogoPulseEnhanced(true);
@@ -566,7 +614,7 @@ function App() {
   async function updateQueueDisplay() {
     const queue = await getQueue();
     setPostQueue(queue);
-    setDailyPostCount(getDailyPostCount());
+    setDailyPostCount(await getDailyPostCount());
     setNextPostTime(getNextPostTime());
   }
 
@@ -723,6 +771,10 @@ function App() {
 
       setTxItems(displayed);
       setBlacklistedTxs(blacklisted);
+
+      // Calculate daily memo character count (sum of [N] bracket numbers for current UTC day)
+      const dailyCount = calculateDailyMemoCount(displayed);
+      setDailyMemoCount(dailyCount);
 
       // 4. AI Logs with Caching (only for displayed transactions)
       // Check cache first
@@ -892,7 +944,7 @@ function App() {
           }}
           title="Click to copy address"
         >
-          <span className="clipboard-icon">📋</span>
+          <Glyph name="copy" label="Copy wallet address" />
           {BAD_SEED_WALLET_ADDRESS.slice(0, 4)}...{BAD_SEED_WALLET_ADDRESS.slice(-4)}
         </div>
       )}
@@ -945,9 +997,18 @@ function App() {
         className={"screen" + (showDashboard ? " screen--active screen--fade-in" : "")}
       >
         <div className="content-wrapper dashboard-content">
+          <a className="badseed-x-link" href="https://x.com/BADSEEDEXPOSED" target="_blank" rel="noopener noreferrer" aria-label="BADSEED on X (opens in a new tab)">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M18.9 2H22l-6.8 7.8L23.2 22h-6.3L12 14.6 5.5 22H2.3l7.9-9L2.5 2H9l4.5 6.7L18.9 2Zm-1.1 18h1.7L8.1 3.9H6.3L17.8 20Z"/></svg>
+            <span>@BADSEEDEXPOSED</span><span aria-hidden="true">↗</span>
+          </a>
+          <div className="seed-monument" aria-hidden="true">
+            <img src="/logo.gif" alt="" className="logo hero-monument-logo" />
+            <div className="monument-word">BAD<span>SEED</span></div>
+            <iframe className="monument-field" src="/live/background.html" title="Dashboard blockchain field" tabIndex="-1" />
+          </div>
           {/* Header Stats */}
           {/* 1. Wallet Overview (Restored per user request) */}
-          <div className="dashboard-card dashboard-card--glow">
+          <div className="dashboard-card dashboard-card--glow wallet-panel">
             <h2 className="section-title">WALLET OVERVIEW</h2>
 
             <div className="wallet-row">
@@ -1001,13 +1062,13 @@ function App() {
           </div>
 
           {/* 2. Archive Status (New separate section) */}
-          <div className={`dashboard-card ${archiveData.chaosMode ? 'chaos-border' : ''}`}>
+          <div className={`dashboard-card archive-panel ${archiveData.chaosMode ? 'chaos-border' : ''}`}>
             <h2 className="section-title">ARCHIVE STATUS</h2>
             <div className="wallet-row" style={{ borderBottom: 'none', paddingBottom: '4px' }}>
               <span className="label">PERMANENCE</span>
               {archiveData.chaosMode ? (
                 <span className="value status-chaos">
-                  🔴 TOPPLED
+                  <Glyph name="warning" /> TOPPLED
                   <span className="sub-value" style={{ display: 'block', fontSize: '0.8rem', marginTop: '4px', textAlign: 'right' }}>
                     {archiveData.pending.length} DAY{archiveData.pending.length !== 1 ? 'S' : ''} PENDING
                     {archiveData.pending.length > 0 && (
@@ -1020,14 +1081,14 @@ function App() {
                         className="archive-link"
                         style={{ display: 'block', fontSize: '0.7rem', marginTop: '2px', textAlign: 'right', background: 'none', border: 'none', color: '#ff4444', cursor: 'pointer', textDecoration: 'underline', width: '100%' }}
                       >
-                        📄 INSPECT PENDING
+                        <Glyph name="archive" /> INSPECT PENDING
                       </button>
                     )}
                   </span>
                 </span>
               ) : (
                 <span className="value status-synced">
-                  🟢 ARCHIVED
+                  <Glyph name="status" /> ARCHIVED
                   {archiveData.history.length > 0 && (
                     <button
                       onClick={() => setViewingData({
@@ -1038,7 +1099,7 @@ function App() {
                       className="archive-link"
                       style={{ display: 'block', fontSize: '0.75rem', marginTop: '4px', textAlign: 'right', background: 'none', border: 'none', color: '#90cdf4', cursor: 'pointer', textDecoration: 'underline', width: '100%' }}
                     >
-                      📄 VIEW RECORD
+                      <Glyph name="archive" /> VIEW RECORD
                     </button>
                   )}
                 </span>
@@ -1124,7 +1185,7 @@ function App() {
           {
             sentimentData && (
               <section className="dashboard-card dashboard-card--glow collective-sentiment">
-                <h2 className="section-title">🌍 Collective Sentiment</h2>
+                <h2 className="section-title"><Glyph name="signal" /> Collective Sentiment</h2>
                 <p className="sentiment-subtitle">
                   {sentimentData.totalMemos} transmissions analyzed
                 </p>
@@ -1140,6 +1201,8 @@ function App() {
                     fear: Math.round((sentimentData.sentiments.fear / total) * 100),
                     mystery: Math.round((sentimentData.sentiments.mystery / total) * 100)
                   };
+                  const previous = sentimentData.previousPercentages;
+                  const previousLabel = (name) => previous && Number.isFinite(previous[name]) ? `Previous reading: ${previous[name]}%` : undefined;
 
                   // Determine dominant mood
                   const dominant = Object.keys(sentimentData.sentiments).reduce((a, b) =>
@@ -1147,58 +1210,58 @@ function App() {
                   );
 
                   const moods = {
-                    hope: { emoji: '🌱', text: 'The seed is hopeful', color: '#00ff00' },
-                    greed: { emoji: '💰', text: 'The seed hungers', color: '#ffd700' },
-                    fear: { emoji: '🌑', text: 'The seed is uneasy', color: '#ff4444' },
-                    mystery: { emoji: '🔮', text: 'The seed is cryptic', color: '#9966ff' }
+                    hope: { text: 'The seed is hopeful' },
+                    greed: { text: 'The seed hungers' },
+                    fear: { text: 'The seed is uneasy' },
+                    mystery: { text: 'The seed is cryptic' }
                   };
 
                   const currentMood = moods[dominant];
 
                   return (
                     <>
-                      <div className="seed-mood" style={{ color: currentMood.color }}>
-                        {currentMood.emoji} {currentMood.text}
+                      <div className="seed-mood">
+                        <Glyph name="pulse" /> {currentMood.text}
                       </div>
 
                       <div className="sentiment-bars">
                         <div className="sentiment-bar">
-                          <span className="sentiment-label">🌱 Hope</span>
+                          <span className="sentiment-label">Hope</span>
                           <div className="bar-container">
                             <div className="bar-fill hope" style={{ width: `${percentages.hope}%` }} />
                           </div>
-                          <span className="sentiment-value">{percentages.hope}%</span>
+                          <span className="sentiment-value">{percentages.hope}%{previous && <small className="sentiment-previous" aria-label={previousLabel('hope')}>was {previous.hope}%</small>}</span>
                         </div>
 
                         <div className="sentiment-bar">
-                          <span className="sentiment-label">💰 Greed</span>
+                          <span className="sentiment-label">Greed</span>
                           <div className="bar-container">
                             <div className="bar-fill greed" style={{ width: `${percentages.greed}%` }} />
                           </div>
-                          <span className="sentiment-value">{percentages.greed}%</span>
+                          <span className="sentiment-value">{percentages.greed}%{previous && <small className="sentiment-previous" aria-label={previousLabel('greed')}>was {previous.greed}%</small>}</span>
                         </div>
 
                         <div className="sentiment-bar">
-                          <span className="sentiment-label">😨 Fear</span>
+                          <span className="sentiment-label">Fear</span>
                           <div className="bar-container">
                             <div className="bar-fill fear" style={{ width: `${percentages.fear}%` }} />
                           </div>
-                          <span className="sentiment-value">{percentages.fear}%</span>
+                          <span className="sentiment-value">{percentages.fear}%{previous && <small className="sentiment-previous" aria-label={previousLabel('fear')}>was {previous.fear}%</small>}</span>
                         </div>
 
                         <div className="sentiment-bar">
-                          <span className="sentiment-label">🔮 Mystery</span>
+                          <span className="sentiment-label">Mystery</span>
                           <div className="bar-container">
                             <div className="bar-fill mystery" style={{ width: `${percentages.mystery}%` }} />
                           </div>
-                          <span className="sentiment-value">{percentages.mystery}%</span>
+                          <span className="sentiment-value">{percentages.mystery}%{previous && <small className="sentiment-previous" aria-label={previousLabel('mystery')}>was {previous.mystery}%</small>}</span>
                         </div>
                       </div>
 
                       {/* Daily Prophecy */}
                       {prophecy && (
                         <div className="daily-prophecy">
-                          <h4 className="prophecy-heading">🔮 Today's Prophecy</h4>
+                          <h4 className="prophecy-heading"><Glyph name="eye" /> Today's Prophecy</h4>
                           <p className={`prophecy-text ${(() => {
                             // TIME-BASED BLUR GUARD (Production Only)
                             // If it's today's prophecy and before 18:00 UTC, FORCE BLUR
@@ -1221,7 +1284,7 @@ function App() {
                           </p>
                           {!prophecy.ready && !isLocalEnvironment() && (
                             <p className="prophecy-hint">
-                              ✨ Will be revealed once posted to X.com
+                              Will be revealed once posted to X.com
                             </p>
                           )}
                         </div>
@@ -1244,7 +1307,7 @@ function App() {
                   background: 'rgba(0,0,0,0.2)',
                   borderRadius: '2px'
                 }}>
-                  <span>⏳ Reveals: 18:00 UTC</span>
+                  <span>Reveals: 18:00 UTC</span>
                   <span>
                     {(() => {
                       if (!sentimentData || !sentimentData.prophecy) return 'Loading...';
@@ -1292,19 +1355,19 @@ function App() {
                     onClick={async () => {
                       const btn = document.getElementById('prophecy-override-main-btn');
                       const originalText = btn.innerText;
-                      btn.innerText = '⏳ Generating...';
+                      btn.innerText = 'Generating...';
                       btn.disabled = true;
                       try {
                         const res = await fetch('/.netlify/functions/manual-trigger-prophecy?reveal=false');
                         const data = await res.json();
                         if (data.success) {
-                          alert(`✅ Prophecy Generated for ${data.date} (Blurred)!\nDominated by: ${data.prophecy.dominant.toUpperCase()}`);
+                          alert(`Prophecy generated for ${data.date} (blurred).\nDominated by: ${data.prophecy.dominant.toUpperCase()}`);
                           window.location.reload();
                         } else {
-                          alert('❌ Failed: ' + (data.error || data.message));
+                          alert('Failed: ' + (data.error || data.message));
                         }
                       } catch (e) {
-                        alert('❌ Error: ' + e.message);
+                        alert('Error: ' + e.message);
                       } finally {
                         btn.innerText = originalText;
                         btn.disabled = false;
@@ -1314,7 +1377,7 @@ function App() {
                     id="prophecy-override-main-btn"
                     style={{ fontSize: '12px', padding: '8px 16px', backgroundColor: '#6b21a8', border: '1px solid #a855f7', cursor: 'pointer', width: '100%' }}
                   >
-                    🔮 Force Prophecy (Blurred)
+                    <Glyph name="eye" /> Force Prophecy (Blurred)
                   </button>
                   <p style={{ fontSize: '9px', marginTop: '6px', color: '#888' }}>
                     Uses <strong>current</strong> blended stats.<br />
@@ -1328,22 +1391,22 @@ function App() {
                     onClick={async () => {
                       const btn = document.getElementById('archive-force-btn');
                       const originalText = btn.innerText;
-                      btn.innerText = '⏳ Archiving...';
+                      btn.innerText = 'Archiving...';
                       btn.disabled = true;
                       try {
                         const res = await fetch('/.netlify/functions/manual-trigger-archive');
                         const data = await res.json();
                         if (data.success) {
-                          alert(`✅ Archived Successfully!\nTX: ${data.txId}`);
+                          alert(`Archived successfully.\nTX: ${data.txId}`);
                           window.location.reload();
                         } else if (data.chaosMode) {
-                          alert(`⚠️ Upload Failed (Chaos Mode Active)\nAdded to Pending Queue.\nReason: ${data.reason}`);
+                          alert(`Upload failed (Chaos Mode Active).\nAdded to pending queue.\nReason: ${data.reason}`);
                           window.location.reload();
                         } else {
-                          alert('❌ Failed: ' + (data.error || data.message));
+                          alert('Failed: ' + (data.error || data.message));
                         }
                       } catch (e) {
-                        alert('❌ Error: ' + e.message);
+                        alert('Error: ' + e.message);
                       } finally {
                         btn.innerText = originalText;
                         btn.disabled = false;
@@ -1353,7 +1416,7 @@ function App() {
                     id="archive-force-btn"
                     style={{ fontSize: '12px', padding: '8px 16px', backgroundColor: '#15803d', border: '1px solid #22c55e', cursor: 'pointer', width: '100%' }}
                   >
-                    📜 Force Archive (Chaos Check)
+                    <Glyph name="archive" /> Force Archive (Chaos Check)
                   </button>
                   <p style={{ fontSize: '9px', marginTop: '6px', color: '#888' }}>
                     Uploads current state to Arweave.<br />
@@ -1379,10 +1442,10 @@ function App() {
             }}>
               <strong style={{ color: '#fff', display: 'block', marginBottom: '4px' }}>ADMIN: SENTIMENT LOGIC</strong>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
-                <div>📤 <strong>Sol OUT:</strong> +2 Greed, +1 Fear</div>
-                <div>📥 <strong>Sol IN:</strong> +2 Hope</div>
-                <div>😶 <strong>No Memo:</strong> -1 Mystery</div>
-                <div>🤖 <strong>AI Undecided:</strong> +1 Mystery</div>
+                <div><strong>Sol OUT:</strong> +2 Greed, +1 Fear</div>
+                <div><strong>Sol IN:</strong> +2 Hope</div>
+                <div><strong>No Memo:</strong> -1 Mystery</div>
+                <div><strong>AI Undecided:</strong> +1 Mystery</div>
                 <div style={{ gridColumn: 'span 2', marginTop: '2px', fontStyle: 'italic', color: '#888' }}>
                   * Mystery resets to 0% daily on Prophecy Reveal
                 </div>
@@ -1391,7 +1454,12 @@ function App() {
           )}
 
           <section className="dashboard-card dashboard-card--glow">
-            <h2 className="section-title">Recent Transactions</h2>
+            <h2 className="section-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>Recent Transactions</span>
+              <span className="sows-count">
+                {dailyMemoCount} Sows today
+              </span>
+            </h2>
             <ul id="tx-list" className="tx-list">
               {txItems.length === 0 ? (
                 <li className="tx-item">
@@ -1484,7 +1552,7 @@ function App() {
                       {/* Right: AI terminal toast */}
                       <div className="tx-ai-log">
                         <div className="tx-ai-header">[BADSEED AI LOG]</div>
-                        <div className="tx-ai-body">{aiLog}</div>
+                        <div className="tx-ai-body">{isUsableAiLog(aiLog) ? aiLog : (tx.memo ? 'Your inscription is recorded on-chain. Interpretation pending.' : 'No memo accompanied this transaction.')}</div>
                       </div>
                     </li>
                   );
@@ -1495,7 +1563,7 @@ function App() {
 
           {/* X.com Post Queue section */}
           < section id="queue-section" className="dashboard-card dashboard-card--glow post-queue-section" >
-            <h2 className="section-title">🌱 X.com Post Queue</h2>
+            <h2 className="section-title"><Glyph name="signal" /> X.com Post Queue</h2>
 
             <div className="queue-status">
               <div className="queue-stat">
@@ -1531,7 +1599,7 @@ function App() {
                     className="blacklist-btn"
                     style={{ fontSize: '0.8rem', padding: '5px 10px' }}
                   >
-                    ⚡ Force Post Now
+                    <Glyph name="pulse" /> Force Post Now
                   </button>
                   <button
                     onClick={() => {
@@ -1541,7 +1609,7 @@ function App() {
                     className="blacklist-btn"
                     style={{ fontSize: '0.8rem', padding: '5px 10px' }}
                   >
-                    🧪 Add Test Item
+                    Add Test Item
                   </button>
                   <button
                     onClick={async () => {
@@ -1553,7 +1621,7 @@ function App() {
                     className="blacklist-btn"
                     style={{ fontSize: '0.8rem', padding: '5px 10px', backgroundColor: '#ff4444' }}
                   >
-                    🗑️ Clear Queue
+                    Clear Queue
                   </button>
                 </div>
               )
@@ -1576,12 +1644,12 @@ function App() {
                       </div>
                       <div className="queue-item-content">
                         <div className="queue-memo">
-                          <span className="queue-label">📨 Memo:</span>
+                          <span className="queue-label">Memo:</span>
                           <span className="queue-text">"{item.memo}"</span>
                         </div>
                         <div className="queue-ai">
                           <span className="queue-label">→ AI:</span>
-                          <span className="queue-text">{item.aiLog}</span>
+                          <span className="queue-text">{isUsableAiLog(item.aiLog) ? item.aiLog : 'Interpretation pending'}</span>
                         </div>
                       </div>
                     </li>
@@ -1591,14 +1659,14 @@ function App() {
             </div>
 
             <div className="queue-info">
-              <p>🕒 Posts are sent twice daily (UTC midnight & noon). Limit: 2 posts/day.</p>
-              <p>🔄 Duplicate memos are automatically filtered.</p>
+              <p>Posts are sent twice daily (UTC midnight & noon). Limit: 2 posts/day.</p>
+              <p>Duplicate memos are automatically filtered.</p>
             </div>
           </section>
 
           {/* Blacklist section */}
           <section className="dashboard-card dashboard-card--glow blacklist-section">
-            <h2 className="section-title">🚫 Blacklisted Addresses</h2>
+            <details><summary className="section-title">Blacklisted Addresses ({blacklist.length})</summary>
 
             <div className="blacklist-stats">
               <div className="blacklist-stat">
@@ -1637,7 +1705,7 @@ function App() {
                   onClick={handleCopyBlacklist}
                   title="Copy blacklist array to clipboard for code update"
                 >
-                  📋 Copy Blacklist for Code
+                  <Glyph name="copy" /> Copy Blacklist for Code
                 </button>
               </div>
             )}
@@ -1694,7 +1762,9 @@ function App() {
                 </ul>
               </details>
             )}
+            </details>
           </section>
+          <a className="seed-page-switch" href="/live/">Live Dashboard</a>
         </div>
       </main >
       {/* Data Viewer Modal (Archive & Pending) */}
@@ -1702,12 +1772,12 @@ function App() {
         viewingData && (
           <div className="modal-overlay" onClick={() => setViewingData(null)}>
             <div className="send-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px', width: '90%' }}>
-              <h2>📋 {viewingData.title || "Archive Record"}</h2>
+              <h2><Glyph name="archive" /> {viewingData.title || "Archive Record"}</h2>
 
               <div style={{ maxHeight: '60vh', overflowY: 'auto', background: '#111', padding: '10px', borderRadius: '4px', border: '1px solid #333' }}>
                 {viewingData.txId && (
                   <div style={{ marginBottom: '10px', paddingBottom: '10px', borderBottom: '1px solid #333' }}>
-                    <strong>Arweave TX:</strong> <a href={`https://gateway.irys.xyz/${viewingData.txId}`} target="_blank" rel="noreferrer" style={{ color: '#90cdf4' }}>View on Permaweb ↗</a>
+                    <strong>Arweave TX:</strong> <a href={`https://gateway.irys.xyz/${viewingData.txId}`} target="_blank" rel="noreferrer" style={{ color: '#90cdf4' }}>View on Permaweb</a>
                     <br /><span style={{ fontSize: '0.8rem', color: '#666' }}>Note: Gateway resolution is usually instant, but may vary.</span>
                   </div>
                 )}
@@ -1738,23 +1808,31 @@ function App() {
             }
           }}>
             <div className="send-modal" onClick={(e) => e.stopPropagation()}>
-              <h2>Send a Transmission to the Seed</h2>
+              <div className="transmission-kicker"><span></span> LIVE ON-CHAIN TRANSMISSION <span></span></div>
+              <div className="transmission-title-row">
+                <div>
+                  <h2>Speak to the Seed</h2>
+                  <p>Your message becomes part of the public ledger, then enters the Seed’s living signal.</p>
+                </div>
+                <img src="/logo.gif" alt="" className="transmission-logo" />
+              </div>
 
-              <div style={{ marginBottom: "1rem" }}>
-                <label>Message (Memo)</label>
+              <div className="transmission-field transmission-message-field">
+                <label><span>01</span> Inscription</label>
                 <textarea
                   value={memoText}
                   onChange={(e) => setMemoText(e.target.value)}
-                  placeholder="Type your message here..."
+                  placeholder="Leave a mark in the chain…"
                   maxLength={100}
                 />
-                <div style={{ textAlign: "right", fontSize: "0.8rem", color: "#666" }}>
+                <div className="field-meta">
+                  <span>MEMO / PUBLIC / PERMANENT</span>
                   {memoText.length}/100
                 </div>
               </div>
 
-              <div style={{ marginBottom: "1rem" }}>
-                <label>Amount (SOL)</label>
+              <div className="transmission-field transmission-value-field">
+                <label><span>02</span> Signal value</label>
                 <input
                   type="number"
                   step="0.001"
@@ -1762,9 +1840,7 @@ function App() {
                   value={solAmount}
                   onChange={(e) => setSolAmount(e.target.value)}
                 />
-                <div style={{ fontSize: "0.8rem", color: "#666", marginTop: "0.2rem" }}>
-                  Minimum: 0.001 SOL
-                </div>
+                <div className="field-meta"><span>MINIMUM TRANSMISSION</span>0.001 SOL</div>
               </div>
 
               {sendError && (
@@ -1797,7 +1873,7 @@ function App() {
               </div>
 
               <div className="modal-info">
-                This will send SOL to the BAD SEED wallet with your message attached on-chain.
+                <span className="modal-info-mark"></span> The Seed will receive the SOL, read the memo, and let the transmission affect its public signal.
               </div>
             </div>
           </div>

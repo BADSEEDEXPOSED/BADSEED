@@ -1,7 +1,7 @@
 const { Storage } = require('./lib/storage');
+const { validNarrative } = require('./lib/narrative-validation');
 
 const storage = new Storage('queue-data');
-const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
 exports.handler = async (event) => {
     const headers = {
@@ -19,31 +19,8 @@ exports.handler = async (event) => {
     }
 
     try {
-        let queue = await storage.get('queue') || [];
-        const now = Date.now();
-
-        // Filter out items older than 24 hours
-        const originalLength = queue.length;
-        queue = queue.filter(item => {
-            const createdAt = new Date(item.createdAt).getTime();
-            const age = now - createdAt;
-            return age < TWENTY_FOUR_HOURS;
-        });
-
-        // If any items were removed, save the cleaned queue
-        if (queue.length < originalLength) {
-            await storage.set('queue', queue);
-            console.log(`[Queue] Cleaned up ${originalLength - queue.length} expired items`);
-        }
-
-        return {
-            statusCode: 200,
-            body: JSON.stringify(queue),
-            headers: {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*'
-            }
-        };
+        const queue = await storage.get('queue') || [];
+        return { statusCode: 200, headers, body: JSON.stringify(queue.map(item => ({ ...item, aiLog: validNarrative(item.aiLog) ? item.aiLog : '' }))) };
     } catch (error) {
         console.error('Queue get error:', error);
         return {

@@ -5,6 +5,8 @@
 const { Storage } = require('./lib/storage');
 const { randomUUID } = require('crypto');
 const aiNarrative = require('./ai-narrative');
+const { validNarrative } = require('./lib/narrative-validation');
+const { rebuildFromEvents } = require('./lib/sentiment-state');
 
 // Initialize Storage
 const storage = new Storage('queue-data');
@@ -56,7 +58,7 @@ exports.handler = async (event, context) => {
         // 1. Fetch Recent Transactions
         const signatures = await solanaRpc("getSignaturesForAddress", [
             BAD_SEED_WALLET,
-            { limit: 20 }
+            { limit: 100 }
         ]);
 
         if (!signatures || signatures.length === 0) {
@@ -87,18 +89,18 @@ exports.handler = async (event, context) => {
 
         // Load existing Queue & History to check duplicates
         const queue = await storage.get('queue') || [];
-        const history = await storage.get('posted-history') || [];
+        const sentimentStorage = new Storage('sentiment-data');
+        const processedSignatures = new Set(await sentimentStorage.get('processed-signatures') || []);
+        const storedEvents = await sentimentStorage.get('events') || [];
+        const eventCutoff = Date.now() - 24 * 60 * 60 * 1000;
+        const events = storedEvents.filter(event => new Date(event.timestamp).getTime() > eventCutoff);
 
         // Helper to check duplication
-        const isDuplicate = (memo) => {
-            if (history.includes(memo)) return true;
-            if (queue.some(item => item.memo === memo)) return true;
-            return false;
-        };
+        const isDuplicate = (signature) => processedSignatures.has(signature);
 
         for (let i = 0; i < txDetails.length; i++) {
             const detail = txDetails[i];
-            if (!detail) continue;
+            if (!detail || detail.meta?.err) continue;
 
             const blockTime = detail.blockTime ? detail.blockTime * 1000 : NOW;
             // Age check (> 24h)
@@ -180,8 +182,6 @@ exports.handler = async (event, context) => {
                 }
             }
 
-            if (!memo) continue;
-
             // Check Blacklist
             let isBlacklisted = false;
             // To check blacklist we need the accounts from 'detail'
@@ -198,13 +198,13 @@ exports.handler = async (event, context) => {
             }
 
             // Check Duplicates
-            if (isDuplicate(memo)) {
-                console.log(`[Cloud Poller] Ignored duplicate: "${memo}"`);
+            if (isDuplicate(sigsToFetch[i])) {
+                console.log(`[Cloud Poller] Ignored already analyzed transaction: ${sigsToFetch[i]}`);
                 continue;
             }
 
             // Process New Memo!
-            console.log(`[Cloud Poller] Processing NEW memo: "${memo}"`);
+            console.log(`[Cloud Poller] Processing new transaction: ${sigsToFetch[i]}`);
             newMemos.push({
                 signature: sigsToFetch[i],
                 memo,
@@ -243,7 +243,6 @@ exports.handler = async (event, context) => {
             }
 
             const mockBody = {
-                balanceSol: 6.66, // Dummy, needed for context?
                 transactions: [{
                     signature: item.signature,
                     memo: item.memo,
@@ -267,29 +266,44 @@ exports.handler = async (event, context) => {
 
             const aiData = JSON.parse(aiResponse.body);
             const aiLog = aiData.logs && aiData.logs[0] ? aiData.logs[0] : "AI Silence...";
+            if (!validNarrative(aiLog)) continue;
 
             // Apply Sentiment Impact (Weighted)
-            if (aiData.totalImpact) {
-                await applySentimentImpact(aiData.totalImpact);
-            }
+            events.push({
+                signature: item.signature,
+                timestamp: new Date(item.blockTime).toISOString(),
+                memo: item.memo || null,
+                impact: aiData.totalImpact
+            });
+            processedSignatures.add(item.signature);
 
             // Add to Queue
-            const newItem = {
-                id: randomUUID(),
-                memo: item.memo,
-                aiLog: aiLog,
-                createdAt: new Date().toISOString()
-            };
-
-            queue.push(newItem);
-            addedCount++;
-            console.log(`[Cloud Poller] Queued: "${newItem.memo}" -> "${newItem.aiLog}"`);
+            if (item.memo) {
+                const newItem = {
+                    id: randomUUID(),
+                    signature: item.signature,
+                    memo: item.memo,
+                    aiLog: aiLog,
+                    createdAt: new Date().toISOString()
+                };
+                queue.push(newItem);
+                addedCount++;
+                console.log(`[Cloud Poller] Queued: "${newItem.memo}" -> "${newItem.aiLog}"`);
+            }
         }
 
         if (addedCount > 0) {
             await storage.set('queue', queue);
             console.log(`[Cloud Poller] Queue updated. Total items: ${queue.length}`);
         }
+        const eventSetChanged = events.length !== storedEvents.length || newMemos.length > 0;
+        if (eventSetChanged) {
+            const data = await sentimentStorage.get('data') || { sentiments: { hope: 0, greed: 0, fear: 0, mystery: 0 }, totalMemos: 0 };
+            const activeEvents = rebuildFromEvents(data, events);
+            await sentimentStorage.set('data', data);
+            await sentimentStorage.set('events', activeEvents);
+        }
+        await sentimentStorage.set('processed-signatures', [...processedSignatures].slice(-1000));
 
 
 
@@ -309,32 +323,3 @@ exports.config = {
     schedule: "*/10 * * * *" // Run every 10 minutes
 };
 
-// Helper: Apply Sentiment Impact (Handles negatives)
-async function applySentimentImpact(impact) {
-    if (!impact) return;
-    try {
-        const sentimentStorage = new Storage('sentiment-data');
-        let data = await sentimentStorage.get('data') || {
-            sentiments: { hope: 0, greed: 0, fear: 0, mystery: 0 },
-            totalMemos: 0
-        };
-
-        let changed = false;
-        ['hope', 'greed', 'fear', 'mystery'].forEach(k => {
-            if (impact[k] && impact[k] !== 0) {
-                data.sentiments[k] = (data.sentiments[k] || 0) + impact[k];
-                if (data.sentiments[k] < 0) data.sentiments[k] = 0; // Floor at 0
-                changed = true;
-            }
-        });
-
-        if (changed) {
-            data.totalMemos = (data.totalMemos || 0) + 1;
-            data.lastUpdated = new Date().toISOString();
-            await sentimentStorage.set('data', data);
-            console.log('[Cloud Poller] Applied Sentiment Impact:', JSON.stringify(impact));
-        }
-    } catch (e) {
-        console.error('[Cloud Poller] Sentiment Update Failed:', e);
-    }
-}

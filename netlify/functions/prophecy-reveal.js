@@ -20,7 +20,7 @@ exports.handler = async (event, context) => {
         const today = new Date().toISOString().split('T')[0];
 
         if (!storageData || !storageData.prophecy || storageData.prophecy.date !== today) {
-            console.log('[Prophecy Reveal] ⚠️ Missing prophecy for today. TRIGGERING SELF-HEALING generation...');
+            console.log('[Prophecy Reveal] Missing prophecy for today. Triggering self-healing generation...');
 
             // Force generation (even if stats are stale, we need a prophecy)
             const genResult = await generateProphecy(true); // force = true
@@ -43,11 +43,14 @@ exports.handler = async (event, context) => {
         };
 
         const prophecy = data.prophecy || {};
+        if (prophecy.text) {
+            prophecy.text = prophecy.text.replace(/\s*\(AI Unavailable\)\s*$/i, '').trim();
+        }
         const todayString = new Date().toISOString().split('T')[0];
 
         // Double check existence (should be there now)
         if (!prophecy.text || prophecy.date !== todayString) {
-            console.log('[Prophecy Reveal] ❌ Critical: Failed to generate prophecy even after self-healing.');
+            console.log('[Prophecy Reveal] Critical: failed to generate prophecy even after self-healing.');
             return { statusCode: 500, body: JSON.stringify({ error: 'Failed to generate prophecy' }) };
         }
 
@@ -78,7 +81,7 @@ exports.handler = async (event, context) => {
         console.log('[Prophecy Reveal] Prophecy unblurred');
 
         // Post to X.com (with Retry Logic)
-        const tweetText = `🔮 BADSEED DAILY PROPHECY 🔮\n\n${prophecy.text}\n\n📊 Dominant energy: ${prophecy.dominant?.toUpperCase() || 'MYSTERY'}\n\n#BADSEED #Solana #Crypto`;
+        const tweetText = `BADSEED DAILY PROPHECY\n\n${prophecy.text}\n\nDominant energy: ${prophecy.dominant?.toUpperCase() || 'MYSTERY'}\n\n#BADSEED #Solana #Crypto`;
 
         let postSuccess = false;
         let lastError = "";

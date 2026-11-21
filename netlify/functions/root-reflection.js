@@ -21,7 +21,7 @@ exports.handler = async (event) => {
 
         await storage.set('config', config);
 
-        console.log("🧘 Root Reflection Triggered: AI Meditation Mode Activated.");
+        console.log("Root Reflection triggered: AI meditation mode activated.");
 
         return {
             statusCode: 200,

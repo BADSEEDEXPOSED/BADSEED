@@ -20,7 +20,7 @@ exports.handler = async (event, context) => {
         console.log('[Queue Force] Manually triggering queue processor...');
         const result = await processor.processQueue('MANUAL_FORCE');
         return {
-            statusCode: 200, headers,
+            statusCode: result.statusCode, headers,
             body: JSON.stringify({ message: "Processor Triggered", result: result ? result.body : 'Unknown' })
         };
     } catch (e) {

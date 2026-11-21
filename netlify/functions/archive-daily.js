@@ -65,7 +65,7 @@ exports.handler = async (event, context) => {
             prophecy: sentimentData.prophecy || null,
             sentiments: sentimentData.sentiments || {},
             totalMemos: sentimentData.totalMemos || 0,
-            transactions: queueHistory,
+            transactions: [...new Set([...queueHistory, ...queue.map(item => item.memo).filter(Boolean)])],
             pendingQueueSize: queue.length
         };
 
@@ -105,7 +105,7 @@ exports.handler = async (event, context) => {
             url: IRYS_NODE,
             token: "solana",
             key: walletKey,
-            config: { providerUrl: SOLANA_RPC }
+            config: { providerUrl: process.env.REACT_APP_SOLANA_RPC_HOST || SOLANA_RPC }
         });
 
 
@@ -135,14 +135,12 @@ exports.handler = async (event, context) => {
             balance = await irys.getLoadedBalance();
             console.log(`[Chaos Check] Cost: ${irys.utils.fromAtomic(price)} SOL | Balance: ${irys.utils.fromAtomic(balance)} SOL`);
         } catch (e) {
-            console.warn("Failed to get cost/balance, proceeding with caution:", e);
-            // attempt upload anyway, might fail
-            price = irys.utils.toAtomic(0.000001); // fallback dummy
-            balance = irys.utils.toAtomic(0);
+            throw new Error(`Archive price unavailable; no funding attempted: ${e.message}`);
         }
 
         let txId = null;
         let success = false;
+        let failureReason = null;
 
         try {
             // Attempt Upload (Funds must be in wallet, Irys signs tx)
@@ -166,6 +164,7 @@ exports.handler = async (event, context) => {
         } catch (err) {
             console.warn(`[Chaos Archive] Upload failed (likely insufficient funds): ${err.message}`);
             success = false;
+            failureReason = err.message;
         }
 
         // 5. Update Resilience State (Redis)
@@ -183,9 +182,7 @@ exports.handler = async (event, context) => {
             if (archiveState.history.length > 256) archiveState.history.pop();
             await sentimentStorage.set('archive-state', archiveState);
 
-            // Deduplication: Clear posted history so they are not archived again
-            await queueStorage.set('posted-history', []);
-            console.log('[Archive] Cleared posted-history (Batch Processed).');
+            // Posting deduplication history belongs to the X processor; archiving must retain it.
             // Clean up any pending retries (if we eventually implement retry logic to upload OLD dates)
             // For now, today is done.
         } else {
@@ -213,7 +210,8 @@ exports.handler = async (event, context) => {
                 success,
                 chaosMode: !success,
                 txId: txId || null,
-                message: success ? "Archived to Arweave" : "Insufficient Funds - Added to Pending"
+                message: success ? "Archived to Arweave" : "Archive pending",
+                error: failureReason
             })
         };
 

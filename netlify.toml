@@ -7,9 +7,85 @@
   directory = "netlify/functions"
   node_bundler = "esbuild"
 
+# Public token dashboard. Netlify keeps the canonical badseed.exposed URL while
+# the independently deployed dashboard remains its source of truth.
+[[redirects]]
+  from = "/live"
+  to = "https://badseedtoken.netlify.app/"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/live/*"
+  to = "https://badseedtoken.netlify.app/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/live-api/*"
+  to = "https://badseedtoken.netlify.app/.netlify/functions/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/assets/*"
+  to = "https://badseedtoken.netlify.app/assets/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/live"
+  to = "https://badseedtoken.netlify.app/"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/live/*"
+  to = "https://badseedtoken.netlify.app/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/assets/*"
+  to = "https://badseedtoken.netlify.app/assets/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/live-api/*"
+  to = "https://badseedtoken.netlify.app/.netlify/functions/:splat"
+  status = 200
+  force = true
+
 
 [build.environment]
   REACT_APP_SOLANA_RPC_HOST = "https://mainnet.helius-rpc.com/?api-key=273e36fb-f6f8-4556-8166-a2299b594197"
+
+# Keep the public token dashboard at the BADSEED domain while its scheduled
+# functions and market pipeline remain isolated on the token-dashboard site.
+[[redirects]]
+  from = "/live"
+  to = "https://badseedtoken.netlify.app/"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/live/*"
+  to = "https://badseedtoken.netlify.app/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/live-api/*"
+  to = "https://badseedtoken.netlify.app/.netlify/functions/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/assets/*"
+  to = "https://badseedtoken.netlify.app/assets/:splat"
+  status = 200
+  force = true
 
 [functions.prophecy-generate]
   schedule = "0 0 * * *"
@@ -20,4 +96,14 @@
 [functions.archive-daily]
   schedule = "0 23 * * *"
 
+[functions.cloud-queue-poller]
+  schedule = "*/10 * * * *"
+
+[functions.daily-reset]
+  schedule = "0 0 * * *"
+
+
+
+[functions.queue-processor]
+  schedule = "0 0,12 * * *"
 

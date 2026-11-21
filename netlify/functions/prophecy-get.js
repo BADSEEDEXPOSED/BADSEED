@@ -27,7 +27,7 @@ exports.handler = async (event) => {
                     'Access-Control-Allow-Origin': '*'
                 },
                 body: JSON.stringify({
-                    text: prophecy.text,
+                    text: prophecy.text.replace(/\s*\(AI Unavailable\)\s*$/i, '').trim(),
                     date: prophecy.date,
                     ready: prophecy.ready || false,
                     x_post_status: prophecy.x_post_status || 'unknown',

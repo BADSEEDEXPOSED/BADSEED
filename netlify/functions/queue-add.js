@@ -1,5 +1,6 @@
 const { Storage } = require('./lib/storage');
 const { randomUUID } = require('crypto');
+const { validNarrative } = require('./lib/narrative-validation');
 
 const storage = new Storage('queue-data');
 
@@ -46,7 +47,7 @@ exports.handler = async (event) => {
         const newItem = {
             id: randomUUID(),
             memo,
-            aiLog: aiLog || '',
+            aiLog: validNarrative(aiLog) ? aiLog : '',
             // Use provided timestamp or fallback to now
             createdAt: timestamp || new Date().toISOString()
         };

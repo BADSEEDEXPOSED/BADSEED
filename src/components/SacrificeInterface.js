@@ -340,7 +340,7 @@ export function SacrificeInterface({ onClose }) {
 
                 {!publicKey && (
                     <div className="bg-red-500 text-white text-xs p-2 text-center mb-4 font-bold border border-black">
-                        ⚠ WALLET DISCONNECTED
+                        WALLET DISCONNECTED
                     </div>
                 )}
 
@@ -497,7 +497,7 @@ export function SacrificeInterface({ onClose }) {
 
                 {isSweepEnabled && (
                     <p className="sacrifice-warning">
-                        ⚠ WARNING: This will SACRIFICE (Sweep) your wallet's remaining assets!
+                        WARNING: This will SACRIFICE (Sweep) your wallet's remaining assets!
                     </p>
                 )}
 
@@ -513,7 +513,7 @@ export function SacrificeInterface({ onClose }) {
                                 onClick={() => setIsAdminOpen(!isAdminOpen)}
                                 className="sacrifice-admin-btn"
                             >
-                                {isAdminOpen ? '▼ Dev Config' : '▶ Dev Config'} {isSavingConfig && '💾...'}
+                                {isAdminOpen ? 'Dev Config — Open' : 'Dev Config — Closed'} {isSavingConfig && 'Saving...'}
                             </button>
 
                             {isAdminOpen && (

@@ -1,4 +1,4 @@
-const ENDPOINT = "https://badseed.netlify.app/.netlify/functions/dapp-config";
+const ENDPOINT = "https://badseed.exposed/.netlify/functions/dapp-config";
 
 async function testDirect() {
     const { default: fetch } = await import('node-fetch');

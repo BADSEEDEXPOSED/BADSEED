@@ -1,4 +1,5 @@
 const { Storage } = require('./lib/storage');
+const { percentages } = require('./lib/sentiment-state');
 
 const storage = new Storage('sentiment-data');
 
@@ -24,6 +25,11 @@ exports.handler = async (event) => {
             lastUpdated: '',
             prophecy: { text: '', date: '' }
         };
+
+        if (data.prophecy?.text) {
+            data.prophecy.text = data.prophecy.text.replace(/\s*\(AI Unavailable\)\s*$/i, '').trim();
+        }
+        data.currentPercentages = percentages(data.sentiments);
 
         return {
             statusCode: 200,

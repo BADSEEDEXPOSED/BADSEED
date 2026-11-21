@@ -2,6 +2,7 @@
 // Returns cached AI responses for transactions (immutable once stored)
 
 const { Storage } = require('./lib/storage');
+const { validNarrative } = require('./lib/narrative-validation');
 
 const storage = new Storage('ai-logs-data');
 
@@ -16,7 +17,8 @@ exports.handler = async (event) => {
             const signature = event.queryStringParameters?.signature;
 
             if (signature) {
-                const log = await storage.get(signature);
+                const entry = (await storage.get('logs') || {})[signature];
+                const log = validNarrative(entry?.log) ? entry : null;
                 return {
                     statusCode: 200,
                     headers: { 'Content-Type': 'application/json' },
@@ -26,6 +28,7 @@ exports.handler = async (event) => {
 
             // Return all logs (for debugging)
             const allData = await storage.get('logs') || {};
+            for (const key of Object.keys(allData)) if (!validNarrative(allData[key]?.log)) delete allData[key];
             return {
                 statusCode: 200,
                 headers: { 'Content-Type': 'application/json' },
@@ -36,7 +39,7 @@ exports.handler = async (event) => {
         // POST: Store a new log (called by ai-narrative after generation)
         const { signature, log, sentiment } = JSON.parse(event.body || '{}');
 
-        if (!signature || !log) {
+        if (!signature || !validNarrative(log)) {
             return {
                 statusCode: 400,
                 body: JSON.stringify({ error: 'Missing signature or log' })
@@ -47,7 +50,7 @@ exports.handler = async (event) => {
         let logs = await storage.get('logs') || {};
 
         // Check if already exists (immutable - never overwrite)
-        if (logs[signature]) {
+        if (validNarrative(logs[signature]?.log)) {
             return {
                 statusCode: 200,
                 headers: { 'Content-Type': 'application/json' },

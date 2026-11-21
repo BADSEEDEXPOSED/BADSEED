@@ -1,0 +1,27 @@
+name = "badseed-exposed"
+main = "worker.js"
+compatibility_date = "2025-09-01"
+compatibility_flags = ["nodejs_compat", "nodejs_compat_populate_process_env"]
+
+[define]
+__dirname = '""'
+__filename = '""'
+
+[alias]
+"@irys/sdk" = "./netlify/functions/lib/irys-shim.js"
+
+[assets]
+directory = "./build"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+
+[triggers]
+crons = ["* * * * *"]
+
+[[routes]]
+pattern = "badseed.exposed"
+custom_domain = true
+
+[[routes]]
+pattern = "www.badseed.exposed"
+custom_domain = true

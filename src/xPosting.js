@@ -35,7 +35,7 @@ const addToQueue = async ({ memo, aiLog, timestamp }) => {
     }
     const data = await res.json();
     if (data.binId) {
-        console.warn("🚨 SAVE THIS TO NETLIFY ENV VARS 🚨");
+        console.warn("Save this to Netlify environment variables.");
         console.log("QUEUE_BIN_ID=" + data.binId);
     }
     return data;
@@ -77,8 +77,13 @@ export async function queueMemo(memo, aiLog, timestamp) {
 
 // Manual control: Force post immediately (admin only)
 export async function forcePostNow() {
-    console.log("Forcing post now...");
-    return await processQueue(true);
+    try {
+        const res = await fetch(`${API_BASE}/queue-force`, { method: 'POST' });
+        const data = await res.json();
+        let result;
+        try { result = JSON.parse(data.result); } catch { result = {}; }
+        return { success: res.ok && result.success === true, reason: result.error || data.result || 'Post pending' };
+    } catch (e) { return { success: false, reason: e.message }; }
 }
 
 // Manual control: Add test item (admin only)
@@ -160,10 +165,10 @@ export async function processQueue(force = false) {
 
 function formatTweet(items) {
     const maxLen = 280;
-    const header = "🌱 BADSEED TRANSMISSION LOG 🌱\n\n";
+    const header = "BADSEED TRANSMISSION LOG\n\n";
     let body = "";
     for (const { memo, aiLog } of items) {
-        const line = `📨 "${memo}"\n→ ${aiLog}\n\n`;
+        const line = `MEMO: "${memo}"\n${aiLog}\n\n`;
         const remaining = maxLen - header.length - body.length;
         if (remaining <= 0) break;
         if (line.length > remaining) {
@@ -200,9 +205,10 @@ export async function getQueue() {
     return await fetchQueue();
 }
 
-export function getDailyPostCount() {
-    const counter = loadCounter();
-    return counter.count;
+export async function getDailyPostCount() {
+    const res = await fetch(`${API_BASE}/queue-status`);
+    if (!res.ok) return 0;
+    return (await res.json()).postsToday;
 }
 
 export function getNextPostTime() {

@@ -3,6 +3,7 @@
 // Description: Allows "God Mode" (User) to force stats up/down instantly.
 
 const { Storage } = require('./lib/storage');
+const { applyImpact } = require('./lib/sentiment-state');
 const storage = new Storage('sentiment-data');
 
 exports.handler = async (event) => {
@@ -30,21 +31,21 @@ exports.handler = async (event) => {
         };
 
         let log = [];
+        const impact = {};
 
         // Apply Updates
         ['hope', 'greed', 'fear', 'mystery'].forEach(emotion => {
             if (updates[emotion]) {
                 const val = parseInt(updates[emotion]);
                 if (!isNaN(val)) {
-                    data.sentiments[emotion] = (data.sentiments[emotion] || 0) + val;
-                    // Prevent negatives? No, user might want to reduce it.
-                    if (data.sentiments[emotion] < 0) data.sentiments[emotion] = 0;
+                    impact[emotion] = val;
                     log.push(`${emotion} ${val > 0 ? '+' : ''}${val}`);
                 }
             }
         });
 
         if (log.length > 0) {
+            applyImpact(data, impact, { analyzed: false });
             await storage.set('data', data);
             return {
                 statusCode: 200,

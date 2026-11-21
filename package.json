@@ -56,7 +56,15 @@
     "start": "react-app-rewired start",
     "build": "react-app-rewired build",
     "test": "react-app-rewired test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "badseed": "node ../badseed-orchestrator.js",
+    "badseed:all": "node ../badseed-orchestrator.js bsall",
+    "badseed:voice": "node ../badseed-orchestrator.js bsvoice",
+    "badseed:value": "node ../badseed-orchestrator.js bsvalue",
+    "badseed:agent": "node ../badseed-orchestrator.js bsagent",
+    "badseed:soil": "node ../badseed-orchestrator.js bssoil",
+    "badseed:god": "node ../badseed-orchestrator.js bsgod",
+    "badseed:brain": "node ../badseed-orchestrator.js bsbrain"
   },
   "eslintConfig": {
     "extends": [
