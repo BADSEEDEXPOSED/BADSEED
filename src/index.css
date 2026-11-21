@@ -1,4 +1,4 @@
-/* ===== BASIC RESET ===== */
+﻿/* ===== BASIC RESET ===== */
 *,
 *::before,
 *::after {
@@ -1450,7 +1450,7 @@ body:has(#dashboard-screen.screen--active) .site-header::before,
 body:has(#dashboard-screen.screen--active) .site-header::after { display:none; }
 #dashboard-screen .dashboard-content { grid-template-columns:minmax(260px,.8fr) minmax(0,1.7fr); gap:0; align-items:stretch; }
 .seed-monument { grid-column:1/-1; height:clamp(175px,24vw,320px); position:relative; display:grid; place-items:center; overflow:hidden; border-bottom:1px solid #535860; margin-bottom:0; }
-.monument-word { position:relative; z-index:1; display:flex; justify-content:space-between; width:calc(100% - clamp(16px,2vw,34px)); padding-left:clamp(18px,3vw,48px); padding-right:clamp(8px,1.1vw,18px); box-sizing:border-box; font-family:Impact,'Arial Narrow',sans-serif; font-weight:900; font-size:clamp(72px,16.2vw,238px); line-height:1; letter-spacing:-.055em; color:#e3e6e9; background:linear-gradient(170deg,#fff 10%,#b9bec5 38%,#515761 49%,#eff1f4 52%,#939aa4 80%); background-clip:text; -webkit-text-fill-color:transparent; }
+.monument-word { position:relative; z-index:1; display:flex; justify-content:space-between; width:calc(100% - clamp(16px,2vw,34px)); padding-right:clamp(8px,1.1vw,18px); box-sizing:border-box; font-family:Impact,'Arial Narrow',sans-serif; font-weight:900; font-size:clamp(72px,16.2vw,238px); line-height:1; letter-spacing:-.055em; color:#e3e6e9; background:linear-gradient(170deg,#fff 10%,#b9bec5 38%,#515761 49%,#eff1f4 52%,#939aa4 80%); background-clip:text; -webkit-text-fill-color:transparent; }
 .monument-word span { margin-left:clamp(20px,8vw,120px); padding-right:.06em; }
 .monument-field { position:absolute; inset:0; width:100%; height:100%; opacity:.72; mix-blend-mode:screen; }
 .chain-links { stroke-width:1; stroke-linecap:round; stroke-linejoin:round; stroke-dasharray:3 9; animation:chain-current 14s linear infinite; }
@@ -1523,14 +1523,14 @@ body:has(#dashboard-screen.screen--active) > #root #app > .site-header .logo {
   top:50%;
   width:clamp(112px,16vw,238px);
   height:clamp(112px,16vw,238px);
-  z-index:2;
-  opacity:1;
+  z-index:1;
+  opacity:.62;
   transform:translate(-50%,-50%);
   pointer-events:none;
-  border:1px solid rgba(240,245,252,.92);
+  border:1px solid rgba(225,232,240,.78);
   border-radius:50%;
-  background:radial-gradient(circle,rgba(255,255,255,.14),rgba(9,12,17,.16) 63%,transparent 72%);
-  box-shadow:inset 0 0 0 1px rgba(255,255,255,.28),0 0 0 5px rgba(200,212,226,.12),0 0 30px rgba(240,246,255,.38);
+  background:radial-gradient(circle,rgba(221,229,238,.16),rgba(9,12,17,.16) 63%,transparent 72%);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.16),0 0 0 5px rgba(163,177,194,.08),0 0 26px rgba(221,230,240,.28);
 }
 
 .seed-monument .monument-word { z-index:2; }
