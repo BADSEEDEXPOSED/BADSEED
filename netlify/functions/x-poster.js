@@ -65,7 +65,7 @@ exports.handler = async function (event, context) {
                 ...authHeader,
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ text }),
+            body: JSON.stringify({ text: String(text).replace(/(^|[\n"\s])(?:\[\d+\]|\{\d+\})\s+/g, '$1').trim() }),
         });
 
         if (!response.ok) {

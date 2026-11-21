@@ -117,15 +117,15 @@ function formatTweet(items) {
     // Assuming queue is array of objects {memo, aiLog}
 
     const seenMemos = new Set();
-    const stripUrls = (s) => String(s || '').replace(/https?:\/\/\S+/gi, '[link]').trim();
+    const cleanForX = (s) => String(s || '').replace(/^\s*(?:\[\d+\]|\{\d+\})\s*/g, '').replace(/(^|["\s])(?:\[\d+\]|\{\d+\})\s+/g, '$1').replace(/https?:\/\/\S+/gi, '[link]').replace(/\s{2,}/g, ' ').trim();
     for (const item of items) {
-        const cleanMemo = stripUrls(item.memo);
+        const cleanMemo = cleanForX(item.memo);
         if (seenMemos.has(cleanMemo)) {
             itemIds.push(item.id);
             continue;
         }
         seenMemos.add(cleanMemo);
-        const cleanAi = stripUrls(item.aiLog);
+        const cleanAi = cleanForX(item.aiLog);
         const line = `MEMO: "${cleanMemo}"\n${cleanAi}\n\n`;
         const remaining = maxLen - header.length - body.length;
 
