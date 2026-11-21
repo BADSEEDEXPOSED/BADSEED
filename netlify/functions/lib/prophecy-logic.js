@@ -2,7 +2,7 @@ const { Storage } = require('./storage');
 
 const storage = new Storage('sentiment-data');
 
-// Prophecy templates based on dominant sentiment
+// Prophecy templates (last-resort fallback if every AI model is unreachable)
 const PROPHECY_TEMPLATES = {
     hope: [
         "The garden senses rising hope. When seeds believe, roots grow deeper. Today's harvest approaches.",
@@ -26,17 +26,99 @@ const PROPHECY_TEMPLATES = {
     ]
 };
 
+function cleanProphecyText(raw) {
+    if (!raw || typeof raw !== 'string') return '';
+    let text = raw
+        .replace(/<think>[\s\S]*?<\/think>/gi, '')
+        .replace(/^["'`\s]+|["'`\s]+$/g, '')
+        .replace(/^(?:prophecy|response|oracle)\s*:\s*/i, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    if (text.length > 200) {
+        text = text.slice(0, 197).replace(/\s+\S*$/, '').trim() + '...';
+    }
+    return text.length >= 20 ? text : '';
+}
+
+async function callOpenRouter(apiKey, prompt) {
+    const models = [
+        process.env.OPENROUTER_MODEL,
+        'openrouter/free',
+        'meta-llama/llama-3.3-70b-instruct:free',
+        'google/gemma-3-27b-it:free',
+        'nex-agi/nex-n2.5-pro:free'
+    ].filter(Boolean);
+
+    let lastError = 'No OpenRouter models succeeded';
+    for (const model of [...new Set(models)]) {
+        for (let attempt = 1; attempt <= 2; attempt++) {
+            try {
+                const completion = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKey}`,
+                        'HTTP-Referer': 'https://badseed.exposed',
+                        'X-Title': 'BAD SEED',
+                    },
+                    signal: AbortSignal.timeout(15000),
+                    body: JSON.stringify({
+                        model,
+                        messages: [
+                            { role: 'system', content: 'You are The Bad Seed, an ancient cryptographic oracle. Reply with ONLY one original, cryptic prophecy sentence (under 190 characters). No preface, no quotes, no percentages, no hashtags, no emoji.' },
+                            { role: 'user', content: prompt }
+                        ],
+                        reasoning: { exclude: true },
+                        temperature: 0.9,
+                        max_tokens: 220,
+                    }),
+                });
+                if (!completion.ok) {
+                    lastError = `OpenRouter ${model} HTTP ${completion.status}`;
+                    if (completion.status !== 429 && completion.status < 500) break;
+                    continue;
+                }
+                const json = await completion.json();
+                const cleaned = cleanProphecyText(json.choices?.[0]?.message?.content);
+                if (cleaned) return { text: cleaned, model };
+                lastError = `OpenRouter ${model} empty completion`;
+            } catch (err) {
+                lastError = `OpenRouter ${model}: ${err.message}`;
+            }
+        }
+    }
+    throw new Error(lastError);
+}
+
+async function callOpenAI(apiKey, prompt) {
+    const completion = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`,
+        },
+        signal: AbortSignal.timeout(15000),
+        body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            messages: [
+                { role: 'system', content: 'You are The Bad Seed, an ancient cryptographic oracle. Reply with ONLY one original, cryptic prophecy sentence (under 190 characters). No preface, no quotes, no percentages, no hashtags, no emoji.' },
+                { role: 'user', content: prompt }
+            ],
+            temperature: 0.9,
+            max_tokens: 140,
+        }),
+    });
+    if (!completion.ok) throw new Error(`OpenAI HTTP ${completion.status}`);
+    const json = await completion.json();
+    const cleaned = cleanProphecyText(json.choices?.[0]?.message?.content);
+    if (!cleaned) throw new Error('OpenAI returned empty completion');
+    return { text: cleaned, model: 'gpt-4o-mini' };
+}
+
 async function generateProphecy(force = false) {
     console.log('[Prophecy Logic] Starting generation...', { force });
 
-    // PROBE: Check for Keys (Boolean only, safety first)
-    console.log('[DEBUG PROBE] Checking Environment Keys:');
-    console.log('- OPENROUTER_API_KEY Present:', !!process.env.OPENROUTER_API_KEY);
-    console.log('- UPSTASH_REDIS_REST_URL Present:', !!process.env.UPSTASH_REDIS_REST_URL);
-    console.log('- UPSTASH_REDIS_REST_TOKEN Present:', !!process.env.UPSTASH_REDIS_REST_TOKEN);
-
     try {
-        // Get current sentiment data
         let data = await storage.get('data') || {
             totalMemos: 0,
             sentiments: { hope: 0, greed: 0, fear: 0, mystery: 0 },
@@ -46,22 +128,18 @@ async function generateProphecy(force = false) {
 
         const today = new Date().toISOString().split('T')[0];
 
-        // HEARTBEAT: Log this run attempt
+        // If not forced and today's prophecy was already posted to X, don't overwrite it!
+        if (!force && data.prophecy && data.prophecy.date === today && data.prophecy.x_post_status === 'posted') {
+            return { success: true, skipped: true, message: 'Already generated and posted today', dominant: data.prophecy.dominant, prophecy: data.prophecy };
+        }
+
         try {
             let logData = await storage.get('system_logs') || {};
             logData.last_generation_attempt = new Date().toISOString();
             logData.last_generation_date = today;
             await storage.set('system_logs', logData);
-        } catch (e) {
-            console.warn('[Prophecy Logic] Heartbeat log failed:', e.message);
-        }
+        } catch (e) { }
 
-        // Check if prophecy already generated today
-        if (data.prophecy && data.prophecy.date === today && data.prophecy.text) {
-            console.log('[Prophecy Logic] Prophecy exists for today. Overwriting with FRESH generation as per directive.');
-        }
-
-        // Find dominant sentiment
         const sentiments = data.sentiments || { hope: 0, greed: 0, fear: 0, mystery: 0 };
         const total = Object.values(sentiments).reduce((a, b) => a + b, 0);
 
@@ -70,8 +148,7 @@ async function generateProphecy(force = false) {
             dominant = Object.entries(sentiments).reduce((a, b) => b[1] > a[1] ? b : a)[0];
         }
 
-        // Calculate Percentages
-        let percentages = { hope: 0, greed: 0, fear: 0, mystery: 0 };
+        let percentages = { hope: 25, greed: 25, fear: 25, mystery: 25 };
         if (total > 0) {
             percentages = {
                 hope: Math.round((sentiments.hope / total) * 100),
@@ -79,109 +156,82 @@ async function generateProphecy(force = false) {
                 fear: Math.round((sentiments.fear / total) * 100),
                 mystery: Math.round((sentiments.mystery / total) * 100)
             };
-        } else {
-            percentages = { hope: 25, greed: 25, fear: 25, mystery: 25 };
         }
 
-        // Generate Prophecy via AI
         let prophecyText = '';
         let generationSource = 'template';
+        let generationModel = null;
         let generationError = null;
-        try {
-            // The existing production secret was originally stored under OPENAI_API_KEY.
-            // Accept it during the provider migration while preferring the explicit name.
-            const apiKey = process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY;
-            if (apiKey) {
-                console.log('[Prophecy Logic] Calling OpenRouter for blended prophecy...');
 
-                // [VARIETY FIX] Inject random noise/date into prompt to ensure uniqueness
-                const seed = Math.floor(Math.random() * 10000);
+        const seed = Math.floor(Math.random() * 100000);
+        const prompt = `Date ${today}; variation ${seed}. Dominant energy: ${dominant} (hope ${percentages.hope}%, greed ${percentages.greed}%, fear ${percentages.fear}%, mystery ${percentages.mystery}%). Speak today's prophecy.`;
 
-                const prompt = `You are The Bad Seed. Date ${today}; variation ${seed}. Sentiment: hope ${percentages.hope}%, greed ${percentages.greed}%, fear ${percentages.fear}%, mystery ${percentages.mystery}%. Return only one original cryptic prophecy under 220 characters that reflects this blend. No analysis, preface, percentages, or emoji.`;
+        const openRouterKey = process.env.OPENROUTER_API_KEY || (process.env.OPENAI_API_KEY?.startsWith('sk-or-') ? process.env.OPENAI_API_KEY : null);
+        const openAiKey = process.env.OPENAI_API_KEY && !process.env.OPENAI_API_KEY.startsWith('sk-or-') ? process.env.OPENAI_API_KEY : null;
 
-                // Free providers occasionally return an empty final completion. Retry before fallback.
-                for (let attempt = 1; attempt <= 3 && !prophecyText; attempt++) {
-                    const completion = await fetch(`https://openrouter.ai/api/v1/chat/completions`, {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                            "Authorization": `Bearer ${apiKey}`,
-                            "HTTP-Referer": "https://badseed.exposed",
-                            "X-Title": "BAD SEED",
-                        },
-                        body: JSON.stringify({
-                            model: "nex-agi/nex-n2.5-pro:free",
-                            messages: [{ role: "user", content: prompt }],
-                            temperature: 0.85,
-                            max_tokens: 160,
-                        }),
-                    });
-
-                    if (!completion.ok) {
-                        console.error('[Prophecy Logic] AI Call failed:', completion.status);
-                        continue;
-                    }
-
-                    const json = await completion.json();
-                    prophecyText = json.choices?.[0]?.message?.content?.trim() || '';
-                    if (!prophecyText) console.warn(`[Prophecy Logic] Empty AI response on attempt ${attempt}`);
-                }
-                if (!prophecyText) throw new Error('Empty AI response after 3 attempts');
+        if (openRouterKey) {
+            try {
+                const res = await callOpenRouter(openRouterKey, prompt);
+                prophecyText = res.text;
                 generationSource = 'ai';
-            } else {
-                throw new Error('No API Key');
+                generationModel = res.model;
+            } catch (err) {
+                console.warn('[Prophecy Logic] OpenRouter chain failed:', err.message);
+                generationError = err.message;
             }
-        } catch (aiError) {
-            console.warn('[Prophecy Logic] AI failed, falling back to templates:', aiError.message);
-            generationError = aiError.message;
+        }
+
+        if (!prophecyText && openAiKey) {
+            try {
+                const res = await callOpenAI(openAiKey, prompt);
+                prophecyText = res.text;
+                generationSource = 'ai';
+                generationModel = res.model;
+                generationError = null;
+            } catch (err) {
+                console.warn('[Prophecy Logic] OpenAI fallback failed:', err.message);
+                generationError = (generationError ? generationError + '; ' : '') + err.message;
+            }
+        }
+
+        if (!prophecyText) {
             const templates = PROPHECY_TEMPLATES[dominant] || PROPHECY_TEMPLATES.mystery;
             prophecyText = templates[Math.floor(Math.random() * templates.length)];
         }
 
-        // Store prophecy (still blurred - ready: false)
         data.prophecy = {
             text: prophecyText,
             date: today,
             ready: false,
-            dominant: dominant,
-            percentages: percentages,
-            x_post_status: 'pending', // [NEW] Track X.com status
+            dominant,
+            percentages,
+            x_post_status: 'pending',
             generation_source: generationSource,
+            generation_model: generationModel,
             generation_error: generationError,
             generatedAt: new Date().toISOString()
         };
 
         await storage.set('data', data);
 
-        // SUCCESS HEARTBEAT
         try {
             let logData = await storage.get('system_logs') || {};
             logData.last_successful_generation = new Date().toISOString();
             await storage.set('system_logs', logData);
         } catch (e) { }
 
-        console.log('[Prophecy Logic] Generated:', dominant, prophecyText.substring(0, 50));
+        console.log('[Prophecy Logic] Generated:', dominant, generationSource, generationModel, prophecyText.substring(0, 60));
 
-        return {
-            success: true,
-            dominant,
-            prophecy: data.prophecy
-        };
-
+        return { success: true, dominant, prophecy: data.prophecy };
     } catch (error) {
         console.error('[Prophecy Logic] Error:', error);
-
-        // PAIN RECEPTORS: Save error to DB so God Node knows it's hurt
         try {
             let errorData = await storage.get('data') || {};
             errorData.system_status = 'error';
             errorData.last_error = error.message;
             errorData.last_error_time = new Date().toISOString();
             await storage.set('data', errorData);
-        } catch (dbError) {
-            console.error('[Prophecy Logic] Failed to save error state:', dbError);
-        }
-
+        } catch (dbError) { }
         throw error;
     }
 }

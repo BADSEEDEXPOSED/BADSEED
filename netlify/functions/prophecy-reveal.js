@@ -1,37 +1,49 @@
-// Scheduled Function: Reveal and Post Prophecy
-// Runs at 18:00 UTC daily - unblurs prophecy and posts to X.com
+// Scheduled Function: Reveal and Post Daily Prophecy to X.com
+// Idempotent + Redis-locked + auto-retried every 10 minutes after 18:00 UTC until posted.
 
 const { Storage } = require('./lib/storage');
 const OAuth = require('oauth-1.0a');
 const crypto = require('crypto');
+const { generateProphecy } = require('./lib/prophecy-logic');
 
 const storage = new Storage('sentiment-data');
 
-const { generateProphecy } = require('./lib/prophecy-logic'); // Import logic
+function buildProphecyTweet(text, dominant, date) {
+    const header = `BADSEED DAILY PROPHECY • ${date}\n\n`;
+    const footer = `\n\nDominant energy: ${(dominant || 'MYSTERY').toUpperCase()}\n\n#BADSEED #Solana #Crypto`;
+    const maxBody = 280 - header.length - footer.length;
+    let body = String(text || '').trim();
+    if (body.length > maxBody) {
+        body = body.slice(0, Math.max(0, maxBody - 3)).replace(/\s+\S*$/, '').trim() + '...';
+    }
+    return `${header}${body}${footer}`.slice(0, 280);
+}
 
 exports.handler = async (event, context) => {
-    console.log('[Prophecy Reveal] Running at', new Date().toISOString());
+    const headers = {
+        'Access-Control-Allow-Origin': '*',
+        'Content-Type': 'application/json'
+    };
 
+    const lock = crypto.randomUUID();
+    let acquired = false;
     try {
-        // Get current data
+        acquired = await storage._fetch('SET', 'sentiment-data:prophecy-post-lock', lock, 'NX', 'EX', 120) === 'OK';
+        if (!acquired) {
+            return { statusCode: 409, headers, body: JSON.stringify({ message: 'Prophecy reveal already in progress' }) };
+        }
+
+        const today = new Date().toISOString().split('T')[0];
         let storageData = await storage.get('data');
 
-        // SELF-HEALING: If no data or prophecy for today, GENERATE IT NOW
-        const today = new Date().toISOString().split('T')[0];
-
-        if (!storageData || !storageData.prophecy || storageData.prophecy.date !== today) {
+        // Self-healing: if no prophecy for today, generate a fresh AI prophecy right now
+        if (!storageData || !storageData.prophecy || storageData.prophecy.date !== today || !storageData.prophecy.text) {
             console.log('[Prophecy Reveal] Missing prophecy for today. Triggering self-healing generation...');
-
-            // Force generation (even if stats are stale, we need a prophecy)
-            const genResult = await generateProphecy(true); // force = true
-
-            // USE RETURNED DATA directly to avoid Storage cache race condition (TTL 5s)
+            const genResult = await generateProphecy(true);
             if (genResult.success && genResult.prophecy) {
                 if (!storageData) storageData = {};
                 storageData.prophecy = genResult.prophecy;
-                console.log('[Prophecy Reveal] Self-Healing Complete. Prophecy generated.');
             } else {
-                // Fallback refresh just in case
                 storageData = await storage.get('data');
             }
         }
@@ -46,110 +58,118 @@ exports.handler = async (event, context) => {
         if (prophecy.text) {
             prophecy.text = prophecy.text.replace(/\s*\(AI Unavailable\)\s*$/i, '').trim();
         }
-        const todayString = new Date().toISOString().split('T')[0];
 
-        // Double check existence (should be there now)
-        if (!prophecy.text || prophecy.date !== todayString) {
-            console.log('[Prophecy Reveal] Critical: failed to generate prophecy even after self-healing.');
-            return { statusCode: 500, body: JSON.stringify({ error: 'Failed to generate prophecy' }) };
+        if (!prophecy.text || prophecy.date !== today) {
+            return { statusCode: 500, headers, body: JSON.stringify({ error: 'Failed to generate prophecy' }) };
         }
 
+        // Only skip if ALREADY revealed AND successfully posted to X
         if (prophecy.ready && prophecy.x_post_status === 'posted') {
-            console.log('[Prophecy Reveal] Already revealed and posted to X');
-            return { statusCode: 200, body: JSON.stringify({ message: 'Already revealed and posted', tweetId: prophecy.tweetId || null }) };
+            return {
+                statusCode: 200,
+                headers,
+                body: JSON.stringify({
+                    success: true,
+                    alreadyPosted: true,
+                    tweetId: prophecy.tweetId || null,
+                    prophecy: prophecy.text
+                })
+            };
         }
-        const wasAlreadyRevealed = Boolean(prophecy.ready);
 
-        // Mark as ready (unblurred)
+        const wasAlreadyRevealed = Boolean(prophecy.ready);
         data.prophecy.ready = true;
         if (!data.prophecy.revealedAt) {
             data.prophecy.revealedAt = new Date().toISOString();
         }
-
-        // Ensure x_post_status is at least pending if unknown
         if (!data.prophecy.x_post_status) {
             data.prophecy.x_post_status = 'pending';
         }
-
-        // RESET MYSTERY SENTIMENT (The "Reset" Rule)
         if (!wasAlreadyRevealed && data.sentiments) {
             data.sentiments.mystery = 0;
-            console.log('[Prophecy Reveal] Mystery sentiment reset to 0');
         }
-
         await storage.set('data', data);
 
-        console.log('[Prophecy Reveal] Prophecy unblurred');
-
-        // Post to X.com (with Retry Logic)
-        const tweetText = `BADSEED DAILY PROPHECY\n\n${prophecy.text}\n\nDominant energy: ${prophecy.dominant?.toUpperCase() || 'MYSTERY'}\n\n#BADSEED #Solana #Crypto`;
+        // Build guaranteed <= 280-char unique tweet
+        const tweetText = buildProphecyTweet(prophecy.text, prophecy.dominant, today);
 
         let postSuccess = false;
-        let lastError = "";
+        let lastError = '';
 
         for (let attempt = 1; attempt <= 3; attempt++) {
             try {
                 console.log(`[Prophecy Reveal] Posting to X (Attempt ${attempt}/3)...`);
                 const postResult = await postToX(tweetText);
-                console.log('[Prophecy Reveal] Posted to X:', postResult);
+                const tweetId = postResult?.id || postResult?.data?.id;
+                if (!tweetId) throw new Error('X API returned no tweet ID');
 
                 data.prophecy.postedAt = new Date().toISOString();
-                data.prophecy.tweetId = postResult.id || postResult.data?.id;
+                data.prophecy.tweetId = tweetId;
                 data.prophecy.x_post_status = 'posted';
                 data.prophecy.last_post_error = null;
                 await storage.set('data', data);
+
                 try {
                     const logStorage = new Storage('transmission-log');
                     let logs = await logStorage.get('logs') || [];
                     logs.unshift({
-                        id: data.prophecy.tweetId || 'unknown',
+                        id: tweetId,
                         text: tweetText,
                         date: data.prophecy.postedAt,
                         type: 'DAILY_PROPHECY',
-                        link: 'https://x.com/i/status/' + data.prophecy.tweetId
+                        link: `https://x.com/i/status/${tweetId}`
                     });
                     if (logs.length > 50) logs.pop();
                     await logStorage.set('logs', logs);
                 } catch (logErr) {
-                    console.warn('[Prophecy Reveal] transmission-log update failed:', logErr.message);
+                    console.warn('[Prophecy Reveal] Failed to update transmission-log:', logErr.message);
                 }
-                postSuccess = true;
-                break; // Success!
 
+                postSuccess = true;
+                break;
             } catch (postError) {
                 console.error(`[Prophecy Reveal] Attempt ${attempt} failed:`, postError.message);
                 lastError = postError.message;
-                if (attempt < 3) await new Promise(r => setTimeout(r, 2000)); // Wait 2s
+                // Don't burn retries on hard 401/402/403 billing/auth errors
+                if (/\b(401|402|403)\b/.test(lastError)) break;
+                if (attempt < 3) await new Promise(r => setTimeout(r, 1500 * attempt));
             }
         }
 
         if (!postSuccess) {
-            console.error('[Prophecy Reveal] CRITICAL: All 3 attempts to post failed.');
             data.prophecy.x_post_status = 'failed';
             data.prophecy.last_post_error = lastError;
+            data.prophecy.last_post_attempt = new Date().toISOString();
             await storage.set('data', data);
-            // Consider alerting God Node via error log?
         }
 
-        // SUCCESS HEARTBEAT
         try {
             let logData = await storage.get('system_logs') || {};
             logData.last_successful_reveal = new Date().toISOString();
             logData.last_reveal_date = today;
+            logData.last_x_post_status = data.prophecy.x_post_status;
             await storage.set('system_logs', logData);
         } catch (e) { }
 
         return {
-            statusCode: 200,
+            statusCode: postSuccess ? 200 : 502,
+            headers,
             body: JSON.stringify({
-                success: true,
+                success: postSuccess,
                 revealed: true,
+                x_post_status: data.prophecy.x_post_status,
+                tweetId: data.prophecy.tweetId || null,
+                error: postSuccess ? null : lastError,
                 prophecy: prophecy.text
             })
         };
     } catch (error) {
         console.error('[Prophecy Reveal] Error:', error);
-        return { statusCode: 500, body: JSON.stringify({ error: error.message }) };
+        return { statusCode: 500, headers, body: JSON.stringify({ error: error.message }) };
+    } finally {
+        if (acquired) {
+            await storage._fetch('EVAL', "if redis.call('get',KEYS[1]) == ARGV[1] then return redis.call('del',KEYS[1]) else return 0 end", 1, 'sentiment-data:prophecy-post-lock', lock).catch(() => {});
+        }
     }
 };
 
@@ -197,7 +217,6 @@ async function postToX(text) {
     return result.data;
 }
 
-// Netlify scheduled function config
 exports.config = {
-    schedule: "0 18 * * *"  // 18:00 UTC daily
+    schedule: "0 18 * * *"
 };

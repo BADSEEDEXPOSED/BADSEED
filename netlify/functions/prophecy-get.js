@@ -18,7 +18,6 @@ exports.handler = async (event) => {
         const today = new Date().toISOString().split('T')[0];
         const prophecy = data.prophecy || { text: '', date: '' };
 
-        // Check if prophecy is for today and ready
         if (prophecy.date === today && prophecy.text) {
             return {
                 statusCode: 200,
@@ -31,14 +30,16 @@ exports.handler = async (event) => {
                     date: prophecy.date,
                     ready: prophecy.ready || false,
                     x_post_status: prophecy.x_post_status || 'unknown',
+                    tweet_id: prophecy.tweetId || null,
+                    generation_source: prophecy.generation_source || null,
+                    generation_model: prophecy.generation_model || null,
                     revealed_at: prophecy.revealedAt || null,
                     system_status: data.system_status || 'nominal',
-                    last_error: data.last_error || null
+                    last_error: prophecy.last_post_error || data.last_error || null
                 })
             };
         }
 
-        // No prophecy for today
         return {
             statusCode: 200,
             headers: {

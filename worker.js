@@ -224,8 +224,8 @@ export default {
       tasks.push(runLocal('queue-processor'));
     }
 
-    // 18:00 UTC: Prophecy reveal
-    if (hour === 18 && minute === 0) {
+    // 18:00 UTC and every 10 minutes thereafter until posted: Prophecy reveal (idempotent auto-retry)
+    if (hour >= 18 && minute % 10 === 0) {
       tasks.push(runLocal('prophecy-reveal'));
     }
 
