@@ -163,6 +163,9 @@ export default {
     if (p.startsWith('/assets/')) {
       return proxyToToken(request, env, p);
     }
+    if (p === '/badseed.gif') {
+      return proxyToToken(request, env, '/badseed.gif');
+    }
 
     // Serverless functions (preserving /.netlify/functions/* paths for full compatibility)
     if (p.startsWith('/.netlify/functions/')) {
