@@ -15,6 +15,10 @@ directory = "./build"
 binding = "ASSETS"
 not_found_handling = "single-page-application"
 
+[[services]]
+binding = "TOKEN_WORKER"
+service = "badseed-token"
+
 [triggers]
 crons = ["* * * * *"]
 

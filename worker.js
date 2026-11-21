@@ -130,17 +130,18 @@ async function invokeNetlifyHandler(mod, request, env) {
   });
 }
 
-async function proxyToToken(request, targetPath) {
+async function proxyToToken(request, env, targetPath) {
   const url = new URL(request.url);
   const dest = `${TOKEN_ORIGIN}${targetPath}${url.search}`;
   const reqHeaders = new Headers(request.headers);
   reqHeaders.delete('host');
-  return fetch(dest, {
+  const proxiedReq = new Request(dest, {
     method: request.method,
     headers: reqHeaders,
     body: request.method !== 'GET' && request.method !== 'HEAD' ? request.body : undefined,
-    redirect: 'manual',
+    redirect: 'follow',
   });
+  return env.TOKEN_WORKER ? env.TOKEN_WORKER.fetch(proxiedReq) : fetch(proxiedReq);
 }
 
 export default {
@@ -151,16 +152,16 @@ export default {
 
     // Reverse proxy routes for public token dashboard (/live, /live/*, /live-api/*, /assets/*)
     if (p === '/live' || p === '/live/') {
-      return proxyToToken(request, '/');
+      return proxyToToken(request, env, '/');
     }
     if (p.startsWith('/live/')) {
-      return proxyToToken(request, p.slice('/live'.length));
+      return proxyToToken(request, env, p.slice('/live'.length));
     }
     if (p.startsWith('/live-api/')) {
-      return proxyToToken(request, '/.netlify/functions/' + p.slice('/live-api/'.length));
+      return proxyToToken(request, env, '/.netlify/functions/' + p.slice('/live-api/'.length));
     }
     if (p.startsWith('/assets/')) {
-      return proxyToToken(request, p);
+      return proxyToToken(request, env, p);
     }
 
     // Serverless functions (preserving /.netlify/functions/* paths for full compatibility)
