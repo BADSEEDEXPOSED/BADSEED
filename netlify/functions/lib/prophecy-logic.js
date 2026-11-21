@@ -41,7 +41,7 @@ function cleanProphecyText(raw) {
 }
 
 async function callGrok(apiKey, prompt) {
-    const models = ['grok-3', 'grok-3-mini'];
+    const models = ['grok-3-mini', 'grok-3'];
     let lastError = 'No xAI Grok models succeeded';
     for (const model of models) {
         try {
@@ -200,8 +200,7 @@ async function generateProphecy(force = false) {
         let generationModel = null;
         let generationError = null;
 
-        const seed = Math.floor(Math.random() * 100000);
-        const prompt = `Date ${today}; variation ${seed}. Dominant energy: ${dominant} (hope ${percentages.hope}%, greed ${percentages.greed}%, fear ${percentages.fear}%, mystery ${percentages.mystery}%). Speak today's prophecy.`;
+        const prompt = `Date ${today}. Dominant energy: ${dominant} (hope ${percentages.hope}%, greed ${percentages.greed}%, fear ${percentages.fear}%, mystery ${percentages.mystery}%). Speak today's prophecy without mentioning dates, numbers, or percentages.`;
 
         const xaiKey = process.env.XAI_API_KEY;
         const openRouterKey = process.env.OPENROUTER_API_KEY || (process.env.OPENAI_API_KEY?.startsWith('sk-or-') ? process.env.OPENAI_API_KEY : null);
