@@ -1088,7 +1088,7 @@ function App() {
                 </span>
               ) : (
                 <span className="value status-synced">
-                  <Glyph name="status" /> ARCHIVED
+                  {archiveData.history.length} ARCHIVED
                   {archiveData.history.length > 0 && (
                     <button
                       onClick={() => setViewingData({
