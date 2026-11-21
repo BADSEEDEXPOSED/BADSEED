@@ -14,6 +14,7 @@ __filename = '""'
 directory = "./build"
 binding = "ASSETS"
 not_found_handling = "single-page-application"
+run_worker_first = ["/live", "/live/*", "/live-api/*", "/assets/*", "/badseed.gif", "/.netlify/*"]
 
 [[services]]
 binding = "TOKEN_WORKER"
