@@ -1577,7 +1577,14 @@ function App() {
               <div className="queue-stat">
                 <span className="queue-stat-label">Next Post:</span>
                 <span className="queue-stat-value">
-                  {nextPostTime ? new Date(nextPostTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' }) : 'N/A'}
+                  {nextPostTime ? (() => {
+                    const target = new Date(nextPostTime);
+                    const mins = Math.max(0, Math.round((target.getTime() - Date.now()) / 60000));
+                    const hrs = Math.floor(mins / 60);
+                    const rem = mins % 60;
+                    const local = target.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+                    return hrs > 0 ? `${local} (in ${hrs}h ${rem}m)` : `${local} (in ${rem}m)`;
+                  })() : 'N/A'}
                 </span>
               </div>
             </div>
@@ -1659,7 +1666,7 @@ function App() {
             </div>
 
             <div className="queue-info">
-              <p>Posts are sent twice daily (UTC midnight & noon). Limit: 2 posts/day.</p>
+              <p>Posts twice daily at {new Date(Date.UTC(2026, 0, 1, 12, 0)).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} &amp; {new Date(Date.UTC(2026, 0, 1, 0, 0)).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} your time (12:00 &amp; 00:00 UTC).</p>
               <p>Duplicate memos are automatically filtered.</p>
             </div>
           </section>
