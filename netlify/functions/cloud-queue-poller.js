@@ -277,18 +277,25 @@ exports.handler = async (event, context) => {
             });
             processedSignatures.add(item.signature);
 
-            // Add to Queue
+            // Add to Queue (deduplicated against existing queue and posted-history)
             if (item.memo) {
-                const newItem = {
-                    id: randomUUID(),
-                    signature: item.signature,
-                    memo: item.memo,
-                    aiLog: aiLog,
-                    createdAt: new Date().toISOString()
-                };
-                queue.push(newItem);
-                addedCount++;
-                console.log(`[Cloud Poller] Queued: "${newItem.memo}" -> "${newItem.aiLog}"`);
+                const postedHistory = await storage.get('posted-history') || [];
+                const alreadyQueued = queue.some(q => (q.signature && q.signature === item.signature) || q.memo === item.memo);
+                const alreadyPosted = postedHistory.includes(item.memo);
+                if (!alreadyQueued && !alreadyPosted) {
+                    const newItem = {
+                        id: randomUUID(),
+                        signature: item.signature,
+                        memo: item.memo,
+                        aiLog: aiLog,
+                        createdAt: new Date().toISOString()
+                    };
+                    queue.push(newItem);
+                    addedCount++;
+                    console.log(`[Cloud Poller] Queued: "${newItem.memo}" -> "${newItem.aiLog}"`);
+                } else {
+                    console.log(`[Cloud Poller] Skipped duplicate queue item: "${item.memo}"`);
+                }
             }
         }
 

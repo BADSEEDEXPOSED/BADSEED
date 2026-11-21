@@ -54,10 +54,11 @@ exports.handler = async (event, context) => {
             return { statusCode: 500, body: JSON.stringify({ error: 'Failed to generate prophecy' }) };
         }
 
-        if (prophecy.ready) {
-            console.log('[Prophecy Reveal] Already revealed');
-            return { statusCode: 200, body: JSON.stringify({ message: 'Already revealed' }) };
+        if (prophecy.ready && prophecy.x_post_status === 'posted') {
+            console.log('[Prophecy Reveal] Already revealed and posted to X');
+            return { statusCode: 200, body: JSON.stringify({ message: 'Already revealed and posted', tweetId: prophecy.tweetId || null }) };
         }
+        const wasAlreadyRevealed = Boolean(prophecy.ready);
 
         // Mark as ready (unblurred)
         data.prophecy.ready = true;
@@ -71,7 +72,7 @@ exports.handler = async (event, context) => {
         }
 
         // RESET MYSTERY SENTIMENT (The "Reset" Rule)
-        if (data.sentiments) {
+        if (!wasAlreadyRevealed && data.sentiments) {
             data.sentiments.mystery = 0;
             console.log('[Prophecy Reveal] Mystery sentiment reset to 0');
         }
@@ -95,7 +96,23 @@ exports.handler = async (event, context) => {
                 data.prophecy.postedAt = new Date().toISOString();
                 data.prophecy.tweetId = postResult.id || postResult.data?.id;
                 data.prophecy.x_post_status = 'posted';
+                data.prophecy.last_post_error = null;
                 await storage.set('data', data);
+                try {
+                    const logStorage = new Storage('transmission-log');
+                    let logs = await logStorage.get('logs') || [];
+                    logs.unshift({
+                        id: data.prophecy.tweetId || 'unknown',
+                        text: tweetText,
+                        date: data.prophecy.postedAt,
+                        type: 'DAILY_PROPHECY',
+                        link: 'https://x.com/i/status/' + data.prophecy.tweetId
+                    });
+                    if (logs.length > 50) logs.pop();
+                    await logStorage.set('logs', logs);
+                } catch (logErr) {
+                    console.warn('[Prophecy Reveal] transmission-log update failed:', logErr.message);
+                }
                 postSuccess = true;
                 break; // Success!
 
