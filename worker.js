@@ -171,6 +171,36 @@ export default {
     if (p.startsWith('/.netlify/functions/')) {
       const name = p.slice('/.netlify/functions/'.length).split('/')[0];
       if (ROUTES[name]) {
+        const ADMIN_ALL_METHODS = new Set([
+          'x-poster', 'prophecy-set', 'manual-trigger-prophecy', 'prophecy-reveal',
+          'manual-trigger-archive', 'config-set', 'sentiment-inject', 'queue-force',
+          'queue-add-test', 'queue-clear', 'queue-remove', 'transmission-log-clear', 'root-reflection'
+        ]);
+        const ADMIN_POST_ONLY = new Set(['dapp-config', 'queue-toggle']);
+        const needsAdmin = request.method !== 'OPTIONS' && (
+          ADMIN_ALL_METHODS.has(name) ||
+          (ADMIN_POST_ONLY.has(name) && request.method !== 'GET' && request.method !== 'HEAD')
+        );
+        if (needsAdmin && env.ADMIN_API_KEY) {
+          const provided = request.headers.get('X-Admin-Key') || '';
+          const expected = env.ADMIN_API_KEY;
+          let ok = provided.length === expected.length;
+          if (ok) {
+            let diff = 0;
+            for (let i = 0; i < expected.length; i++) diff |= provided.charCodeAt(i) ^ expected.charCodeAt(i);
+            ok = diff === 0;
+          }
+          if (!ok) {
+            return new Response(JSON.stringify({ error: 'Unauthorized: Admin key required' }), {
+              status: 401,
+              headers: {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Headers': 'Content-Type, X-Admin-Key',
+              },
+            });
+          }
+        }
         return invokeNetlifyHandler(ROUTES[name], request, env);
       }
       return new Response(JSON.stringify({ error: `Unknown function: ${name}` }), {
