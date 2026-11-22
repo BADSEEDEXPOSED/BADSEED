@@ -9,8 +9,8 @@ const { generateProphecy } = require('./lib/prophecy-logic');
 const storage = new Storage('sentiment-data');
 
 function buildProphecyTweet(text, dominant, date) {
-    const header = `BADSEED DAILY PROPHECY • ${date}\n\n`;
-    const footer = `\n\nDominant energy: ${(dominant || 'MYSTERY').toUpperCase()}\n\n#BADSEED #Solana #Crypto`;
+    const header = `🔮 BADSEED DAILY PROPHECY 🔮\n\n`;
+    const footer = `\n\n📊 Dominant energy: ${(dominant || 'MYSTERY').toUpperCase()}\n\n#BADSEED #Solana #Crypto`;
     const maxBody = 280 - header.length - footer.length;
     let body = String(text || '').trim();
     if (body.length > maxBody) {

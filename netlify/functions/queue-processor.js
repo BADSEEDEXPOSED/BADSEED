@@ -108,7 +108,8 @@ exports.handler = async (event, context) => {
 // Helper: Format Tweet (Ported from xPosting.js)
 function formatTweet(items) {
     const maxLen = 280;
-    const header = "BADSEED TRANSMISSION LOG\n\n";
+    const header = "🌱 BADSEED TRANSMISSION LOG 🌱\n\n";
+    const footer = "#BADSEED #Solana";
     let body = "";
     const itemIds = [];
 
@@ -126,8 +127,8 @@ function formatTweet(items) {
         }
         seenMemos.add(cleanMemo);
         const cleanAi = cleanForX(item.aiLog);
-        const line = `MEMO: "${cleanMemo}"\n${cleanAi}\n\n`;
-        const remaining = maxLen - header.length - body.length;
+        const line = `📨 "${cleanMemo}"\n→ ${cleanAi}\n\n`;
+        const remaining = maxLen - header.length - footer.length - body.length;
 
         if (remaining <= 0) break;
         if (line.length > remaining && body) break;
@@ -135,7 +136,7 @@ function formatTweet(items) {
         else body += line;
         itemIds.push(item.id);
     }
-    return { text: (header + body).slice(0, maxLen), itemIds };
+    return { text: (header + body + footer).slice(0, maxLen), itemIds };
 }
 
 // Helper: Post to X (Shared Logic)
