@@ -308,11 +308,11 @@ function App() {
     setTimeout(() => setLogoPulseEnhanced(false), 5000);
   }
 
-  // Fetch DApp Config for Visibility
+  // Fetch DApp Config for Visibility (polls every 5s so console toggle takes effect live)
   useEffect(() => {
     const fetchConfig = async () => {
       try {
-        const confRes = await fetch('/.netlify/functions/dapp-config');
+        const confRes = await fetch('/.netlify/functions/dapp-config', { cache: 'no-store' });
         if (confRes.ok) {
           const confData = await confRes.json();
           // If key is missing, default to true
@@ -323,6 +323,8 @@ function App() {
       }
     };
     fetchConfig();
+    const interval = setInterval(fetchConfig, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   // Track wallet connections for analytics
