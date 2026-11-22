@@ -31,6 +31,49 @@
 <body>
   <noscript>You need to enable JavaScript to run this app.</noscript>
   <div id="root"></div>
+
+<style id="badseed-custom-cursor-style">
+@media (pointer: fine) {
+  html, body, body * { cursor: none !important; }
+  #badseed-custom-cursor {
+    position: fixed; top: -64px; left: -64px; width: 32px; height: 32px;
+    pointer-events: none; z-index: 2147483647; transform: translate(-50%, -50%);
+    opacity: 0; transition: opacity 0.15s ease;
+  }
+  #badseed-custom-cursor img { width: 100%; height: 100%; object-fit: contain; display: block; }
+}
+@media (pointer: coarse) { #badseed-custom-cursor { display: none !important; } }
+</style>
+<script id="badseed-custom-cursor-script">
+(function () {
+  if (!window.matchMedia || !window.matchMedia('(pointer: fine)').matches) return;
+  var offSrc = '/cursoroff.gif';
+  var onSrc = '/cursoron.gif';
+  var pre = new Image(); pre.src = onSrc;
+  function mount() {
+    if (document.getElementById('badseed-custom-cursor')) return;
+    var el = document.createElement('div');
+    el.id = 'badseed-custom-cursor';
+    var img = document.createElement('img');
+    img.src = offSrc; img.alt = '';
+    el.appendChild(img);
+    document.body.appendChild(el);
+    var active = false;
+    var sel = 'a,button,input,textarea,select,summary,[role="button"],.card,.seed-organism,.wallet-address-badge,.wallet-adapter-button,.scroll-btn,.seed-page-switch,.send-message-btn';
+    document.addEventListener('mousemove', function (e) {
+      el.style.left = e.clientX + 'px';
+      el.style.top = e.clientY + 'px';
+      el.style.opacity = '1';
+      var hit = !!(e.target && e.target.closest && e.target.closest(sel));
+      if (hit !== active) { active = hit; img.src = active ? onSrc : offSrc; }
+    }, { passive: true });
+    document.addEventListener('mouseleave', function () { el.style.opacity = '0'; });
+    document.addEventListener('mouseenter', function () { el.style.opacity = '1'; });
+  }
+  if (document.body) mount(); else document.addEventListener('DOMContentLoaded', mount);
+})();
+</script>
+
 </body>
 
 </html>
