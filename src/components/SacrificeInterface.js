@@ -497,7 +497,7 @@ export function SacrificeInterface({ onClose }) {
 
                 {isSweepEnabled && (
                     <p className="sacrifice-warning">
-                        WARNING: This will SACRIFICE (Sweep) your wallet's remaining assets!
+
                     </p>
                 )}
 
