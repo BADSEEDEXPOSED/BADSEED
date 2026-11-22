@@ -5,10 +5,19 @@ const { Storage } = require('./lib/storage');
 const storage = new Storage('queue-data');
 
 exports.handler = async function (event, context) {
-    // Only allow POST requests
+    const corsHeaders = {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Content-Type': 'application/json'
+    };
+    if (event.httpMethod === "OPTIONS") {
+        return { statusCode: 200, headers: corsHeaders, body: '' };
+    }
     if (event.httpMethod !== "POST") {
         return {
             statusCode: 405,
+            headers: corsHeaders,
             body: JSON.stringify({ error: "Method Not Allowed" }),
         };
     }
@@ -131,6 +140,7 @@ exports.handler = async function (event, context) {
 
         return {
             statusCode: 200,
+            headers: corsHeaders,
             body: JSON.stringify({ success: true, data }),
         };
 
@@ -138,6 +148,7 @@ exports.handler = async function (event, context) {
         console.error("Serverless function error:", error);
         return {
             statusCode: 500,
+            headers: corsHeaders,
             body: JSON.stringify({ error: error.message }),
         };
     }
