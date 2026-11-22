@@ -1165,7 +1165,7 @@ function App() {
                   : "None"}
               </span>
               <span>
-                <strong>Next:</strong> 23:55 UTC
+                <strong>Next:</strong> {(() => { const n = new Date(); return new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate(), 23, 55)).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); })()}
               </span>
             </div>
 
@@ -1307,7 +1307,7 @@ function App() {
                   background: 'rgba(0,0,0,0.2)',
                   borderRadius: '2px'
                 }}>
-                  <span>Reveals: 18:00 UTC</span>
+                  <span>Reveals: {(() => { const n = new Date(); return new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate(), 18, 0)).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); })()}</span>
                   <span>
                     {(() => {
                       if (!sentimentData || !sentimentData.prophecy) return 'Loading...';
@@ -1666,7 +1666,7 @@ function App() {
             </div>
 
             <div className="queue-info">
-              <p>Posts twice daily at {new Date(Date.UTC(2026, 0, 1, 12, 0)).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} &amp; {new Date(Date.UTC(2026, 0, 1, 0, 0)).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} your time (12:00 &amp; 00:00 UTC).</p>
+              <p>Posts twice daily at {(() => { const n = new Date(); return new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate(), 12, 0)).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); })()} &amp; {(() => { const n = new Date(); return new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate(), 0, 0)).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); })()} your time.</p>
               <p>Duplicate memos are automatically filtered.</p>
             </div>
           </section>
