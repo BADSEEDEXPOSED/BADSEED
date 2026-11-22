@@ -1648,13 +1648,15 @@ body:has(#dashboard-screen.screen--active) > #root #app > .site-header .logo {
 }
 
 /* Custom obsidian/silver scrollbars with teardrop (seed-shaped) arrows */
-html, body, * {
-  scrollbar-color: #8f98a6 #060708;
-  scrollbar-width: thin;
+@supports not selector(::-webkit-scrollbar) {
+  html, body, * {
+    scrollbar-color: #8f98a6 #060708;
+    scrollbar-width: thin;
+  }
 }
-::-webkit-scrollbar {
-  width: 12px;
-  height: 12px;
+html::-webkit-scrollbar, body::-webkit-scrollbar, *::-webkit-scrollbar {
+  width: 14px;
+  height: 14px;
   background: #060708;
 }
 ::-webkit-scrollbar-track {
