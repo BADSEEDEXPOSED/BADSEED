@@ -1210,10 +1210,10 @@ function App() {
                   );
 
                   const moods = {
-                    hope: { text: 'The seed is hopeful' },
-                    greed: { text: 'The seed hungers' },
-                    fear: { text: 'The seed is uneasy' },
-                    mystery: { text: 'The seed is cryptic' }
+                    hope: { text: 'SEED is taking root' },
+                    greed: { text: 'SEED is reaped' },
+                    fear: { text: 'SEED feels the frost' },
+                    mystery: { text: 'SEED is dormant' }
                   };
 
                   const currentMood = moods[dominant];
