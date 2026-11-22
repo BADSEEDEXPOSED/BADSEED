@@ -1,12 +1,13 @@
 // API Endpoint: Get Wallet Status (Balance & Recent Txs)
 // Mirrors the Cloud Poller's view of the blockchain.
 
-const RPC_URL = process.env.REACT_APP_SOLANA_RPC_HOST || "https://api.mainnet-beta.solana.com";
+const DEFAULT_RPC_URL = "https://mainnet.helius-rpc.com/?api-key=65cfa9f7-7bfe-44ff-8e98-24ff80b01e8c";
 const BAD_SEED_WALLET = "9TyzcephhXEw67piYNc72EJtgVmbq3AZhyPFSvdfXWdr";
 
 // Helper: Fetch RPC
 async function solanaRpc(method, params) {
-    const res = await fetch(RPC_URL, {
+    const rpcUrl = process.env.REACT_APP_SOLANA_RPC_HOST || DEFAULT_RPC_URL;
+    const res = await fetch(rpcUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
