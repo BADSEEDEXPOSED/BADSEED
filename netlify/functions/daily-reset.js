@@ -2,7 +2,7 @@
 // Runs at 00:00 UTC daily - resets sentiment counters and blurs prophecy
 
 const { Storage } = require('./lib/storage');
-const { percentages } = require('./lib/sentiment-state');
+const { percentages, rebuildFromEvents } = require('./lib/sentiment-state');
 
 const storage = new Storage('sentiment-data');
 
@@ -38,9 +38,9 @@ exports.handler = async (event, context) => {
         data.previousPercentages = percentages(data.sentiments);
         data.previousSentiments = { ...(data.sentiments || {}) };
         data.previousAt = new Date().toISOString();
-        data.sentiments = { hope: 0, greed: 0, fear: 0, mystery: 0 };
-        data.currentPercentages = { hope: 0, greed: 0, fear: 0, mystery: 0 };
-        data.totalMemos = 0;
+        const storedEvents = await storage.get('events') || [];
+        const activeEvents = rebuildFromEvents(data, storedEvents);
+        await storage.set('events', activeEvents);
 
         // Reset prophecy (blur it)
         data.prophecy = {

@@ -21,11 +21,12 @@ const BLACKLIST = [
     "FLipG5QHjZe1H12f6rr5LCnrmqjhwuBTBp78GwzxnwkR"
 ];
 
-const RPC_URL = process.env.REACT_APP_SOLANA_RPC_HOST || "https://api.mainnet-beta.solana.com";
+const DEFAULT_RPC_URL = "https://mainnet.helius-rpc.com/?api-key=273e36fb-f6f8-4556-8166-a2299b594197";
 
 // Helper: Fetch RPC
 async function solanaRpc(method, params) {
-    const res = await fetch(RPC_URL, {
+    const rpcUrl = process.env.REACT_APP_SOLANA_RPC_HOST || DEFAULT_RPC_URL;
+    const res = await fetch(rpcUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
@@ -215,8 +216,14 @@ exports.handler = async (event, context) => {
         }
 
         if (newMemos.length === 0) {
+            const currentData = await sentimentStorage.get('data') || { sentiments: { hope: 0, greed: 0, fear: 0, mystery: 0 }, totalMemos: 0 };
+            if (events.length > 0 && (!currentData.totalMemos || currentData.totalMemos === 0)) {
+                const activeEvents = rebuildFromEvents(currentData, events);
+                await sentimentStorage.set('data', currentData);
+                await sentimentStorage.set('events', activeEvents);
+            }
             console.log('[Cloud Poller] No new clean memos.');
-            return { statusCode: 200, headers, body: JSON.stringify({ message: 'No new memos' }) };
+            return { statusCode: 200, headers, body: JSON.stringify({ message: 'No new memos', activeEvents: events.length }) };
         }
 
         // 4. Generate AI Logs & Queue
