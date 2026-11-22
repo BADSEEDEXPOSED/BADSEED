@@ -945,7 +945,7 @@ function App() {
           title="Click to copy address"
         >
           <Glyph name="copy" label="Copy wallet address" />
-          {BAD_SEED_WALLET_ADDRESS.slice(0, 4)}...{BAD_SEED_WALLET_ADDRESS.slice(-4)}
+          {BAD_SEED_WALLET_ADDRESS}
         </div>
       )}
 
@@ -1016,11 +1016,11 @@ function App() {
               <span className="value mono">
                 {publicKey ? (
                   <span className="tx-hash">
-                    {publicKey.toString().slice(0, 4) + "..." + publicKey.toString().slice(-4)}
+                    {publicKey.toString()}
                   </span>
                 ) : (
                   <span className="tx-hash">
-                    {BAD_SEED_WALLET_ADDRESS.slice(0, 4) + "..." + BAD_SEED_WALLET_ADDRESS.slice(-4)}
+                    {BAD_SEED_WALLET_ADDRESS}
                   </span>
                 )}
               </span>
@@ -1543,7 +1543,7 @@ function App() {
                             rel="noopener noreferrer"
                             style={{ color: "#c0c0c0", textDecoration: "none" }}
                           >
-                            {BAD_SEED_WALLET_ADDRESS.slice(0, 20)}...
+                            {BAD_SEED_WALLET_ADDRESS}
                           </a>
                         </div>
                       </div>
