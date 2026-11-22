@@ -21,7 +21,7 @@ const BLACKLIST = [
     "FLipG5QHjZe1H12f6rr5LCnrmqjhwuBTBp78GwzxnwkR"
 ];
 
-const DEFAULT_RPC_URL = "https://mainnet.helius-rpc.com/?api-key=273e36fb-f6f8-4556-8166-a2299b594197";
+const DEFAULT_RPC_URL = "https://mainnet.helius-rpc.com/?api-key=65cfa9f7-7bfe-44ff-8e98-24ff80b01e8c";
 
 // Helper: Fetch RPC
 async function solanaRpc(method, params) {
