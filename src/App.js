@@ -1568,7 +1568,7 @@ function App() {
             <div className="queue-status">
               <div className="queue-stat">
                 <span className="queue-stat-label">Posts Today:</span>
-                <span className="queue-stat-value">{dailyPostCount} / 2</span>
+                <span className="queue-stat-value">{dailyPostCount} / 12</span>
               </div>
               <div className="queue-stat">
                 <span className="queue-stat-label">Queued:</span>
@@ -1666,7 +1666,7 @@ function App() {
             </div>
 
             <div className="queue-info">
-              <p>Posts twice daily at {(() => { const n = new Date(); return new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate(), 12, 0)).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); })()} &amp; {(() => { const n = new Date(); return new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate(), 0, 0)).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); })()} your time.</p>
+              <p>Posts up to 12 times daily (every 2 hours starting at {(() => { const n = new Date(); return new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate(), 0, 0)).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); })()} your time).</p>
               <p>Duplicate memos are automatically filtered.</p>
             </div>
           </section>

@@ -205,9 +205,14 @@ export default {
       tasks.push(fetch('https://mcp.badseed.exposed/.netlify/functions/brain-cycle').catch((err) => console.error('[cron] brain-cycle failed:', err)));
     }
 
-    // 00:00 UTC: Prophecy generate, daily reset, queue processor
+    // 00:00 UTC: Prophecy generate, daily reset
     if (hour === 0 && minute === 0) {
-      tasks.push(runLocal('prophecy-generate'), runLocal('daily-reset'), runLocal('queue-processor'));
+      tasks.push(runLocal('prophecy-generate'), runLocal('daily-reset'));
+    }
+
+    // Every 2 hours starting at 00:00 UTC (12 times daily): Queue processor (no-op if queue empty)
+    if (hour % 2 === 0 && minute === 0) {
+      tasks.push(runLocal('queue-processor'));
     }
 
     // 00:10 & 18:10 UTC: Guardian redundancy check
@@ -217,11 +222,6 @@ export default {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ next_run: now.toISOString() }),
       }).catch((err) => console.error('[cron] guardian failed:', err)));
-    }
-
-    // 12:00 UTC: Queue processor
-    if (hour === 12 && minute === 0) {
-      tasks.push(runLocal('queue-processor'));
     }
 
     // 18:00 UTC and every 10 minutes thereafter until posted: Prophecy reveal (idempotent auto-retry)

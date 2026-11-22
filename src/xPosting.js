@@ -115,8 +115,8 @@ export async function clearQueue() {
 export async function processQueue(force = false) {
     const counter = loadCounter();
 
-    if (!force && counter.count >= 2) {
-        console.log("Daily quota reached (2/2). Waiting for tomorrow.");
+    if (!force && counter.count >= 12) {
+        console.log("Daily quota reached (12/12). Waiting for tomorrow.");
         return { success: false, reason: "quota_reached" };
     }
 
@@ -193,7 +193,7 @@ export function scheduleDailyPosts() {
 function checkAndPost() {
     const now = new Date();
     const hour = now.getUTCHours();
-    const isWindow = hour === 0 || hour === 12;
+    const isWindow = hour % 2 === 0;
     if (isWindow) {
         console.log("In posting window. But avoiding client-side auto-post. Server CRON handles this.");
         // processQueue(); // DISABLED: Handled by Server-Side Cron to prevent double-posting
@@ -213,11 +213,8 @@ export async function getDailyPostCount() {
 
 export function getNextPostTime() {
     const now = new Date();
-    const today = new Date();
-    today.setUTCHours(0, 0, 0, 0);
-    const midnight = new Date(today);
-    midnight.setUTCDate(midnight.getUTCDate() + 1);
-    const noon = new Date(today);
-    noon.setUTCHours(12, 0, 0, 0);
-    return now.getTime() < noon.getTime() ? noon : midnight;
+    const next = new Date(now);
+    const nextEvenHour = Math.floor(now.getUTCHours() / 2) * 2 + 2;
+    next.setUTCHours(nextEvenHour, 0, 0, 0);
+    return next;
 }

@@ -181,5 +181,5 @@ async function postToX(text) {
 
 // Config for Netlify Schedule
 exports.config = {
-    schedule: "0 0,12 * * *" // Runs at 00:00 and 12:00 UTC
+    schedule: "0 */2 * * *" // Runs every 2 hours (12 times daily starting at 00:00 UTC)
 };
