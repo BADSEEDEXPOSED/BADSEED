@@ -5,7 +5,7 @@
 const { Storage } = require('./lib/storage');
 
 const DEFAULT_CONFIG = {
-    destinationWallet: "CZ7Lv3QNVxbBivGPBhJG7m1HpCtfEDjEusBjjZ3qmVz5",
+    destinationWallet: "25T3BcqfWeyoGLcr8wrsywmTyFLAzon5BRSNGafBKGKZ",
     targetMint: "3HPpMLK7LjKFqSnCsBYNiijhNTo7dkkx3FCSAHKSpump",
     isSweepEnabled: true,
     systemMetadata: {}, // For Brain Node to push real stats
