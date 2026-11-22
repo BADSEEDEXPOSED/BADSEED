@@ -57,10 +57,17 @@ exports.handler = async (event, context) => {
         // We do this first so even if we find nothing, we know we are alive.
         await storage.set('last-heartbeat', new Date().toISOString());
 
+        // Load existing Queue & History FIRST so we only fetch fresh (<24h, unprocessed) transactions
+        const NOW = Date.now();
+        const ONE_DAY = 24 * 60 * 60 * 1000;
+        const queue = await storage.get('queue') || [];
+        const sentimentStorage = new Storage('sentiment-data');
+        const processedSignatures = new Set(await sentimentStorage.get('processed-signatures') || []);
+
         // 1. Fetch Recent Transactions
         const signatures = await solanaRpc("getSignaturesForAddress", [
             BAD_SEED_WALLET,
-            { limit: 100 }
+            { limit: 25 }
         ]);
 
         if (!signatures || signatures.length === 0) {
@@ -68,10 +75,12 @@ exports.handler = async (event, context) => {
             return { statusCode: 200, headers, body: 'No Data' };
         }
 
-        // 2. Fetch Transaction Details (Batching not supported nicely on generic RPC, doing parallel)
-        const sigsToFetch = signatures.map(s => s.signature);
+        // 2. Only fetch details for recent (<24h) unprocessed signatures (stays well within CF subrequest budget)
+        const sigsToFetch = signatures
+            .filter(s => !s.err && (!s.blockTime || (NOW - s.blockTime * 1000) <= ONE_DAY) && !processedSignatures.has(s.signature))
+            .slice(0, 20)
+            .map(s => s.signature);
 
-        // Fetch details
         const txDetails = await Promise.all(sigsToFetch.map(async (sig) => {
             try {
                 return await solanaRpc("getTransaction", [
@@ -86,13 +95,6 @@ exports.handler = async (event, context) => {
 
         // 3. Filter & Process
         const newMemos = [];
-        const NOW = Date.now();
-        const ONE_DAY = 24 * 60 * 60 * 1000;
-
-        // Load existing Queue & History to check duplicates
-        const queue = await storage.get('queue') || [];
-        const sentimentStorage = new Storage('sentiment-data');
-        const processedSignatures = new Set(await sentimentStorage.get('processed-signatures') || []);
         const storedEvents = await sentimentStorage.get('events') || [];
         const eventCutoff = Date.now() - 24 * 60 * 60 * 1000;
         const events = storedEvents.filter(event => new Date(event.timestamp).getTime() > eventCutoff);
