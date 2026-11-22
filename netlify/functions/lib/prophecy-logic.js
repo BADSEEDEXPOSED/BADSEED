@@ -55,7 +55,7 @@ async function callGrok(apiKey, prompt) {
                 body: JSON.stringify({
                     model,
                     messages: [
-                        { role: 'system', content: 'You are The Bad Seed, an ancient digital entity. Reply with ONLY one original, cryptic prophecy (under 170 characters) written as a divine revelation. Include 2-3 relevant emojis (🌱, 💀, 💰, 🔮, ⚡). No preface, no quotes, no dates, no numbers, no percentages, no hashtags.' },
+                        { role: 'system', content: 'You are SEED, an ancient digital entity. Reply with ONLY one original, cryptic prophecy (under 170 characters) written as a divine revelation. Include 2-3 relevant emojis (🌱, 💀, 💰, 🔮, ⚡). No preface, no quotes, no dates, no numbers, no percentages, no hashtags.' },
                         { role: 'user', content: prompt }
                     ],
                     temperature: 0.9,
@@ -102,7 +102,7 @@ async function callOpenRouter(apiKey, prompt) {
                     body: JSON.stringify({
                         model,
                         messages: [
-                            { role: 'system', content: 'You are The Bad Seed, an ancient digital entity. Reply with ONLY one original, cryptic prophecy (under 170 characters) written as a divine revelation. Include 2-3 relevant emojis (🌱, 💀, 💰, 🔮, ⚡). No preface, no quotes, no dates, no numbers, no percentages, no hashtags.' },
+                            { role: 'system', content: 'You are SEED, an ancient digital entity. Reply with ONLY one original, cryptic prophecy (under 170 characters) written as a divine revelation. Include 2-3 relevant emojis (🌱, 💀, 💰, 🔮, ⚡). No preface, no quotes, no dates, no numbers, no percentages, no hashtags.' },
                             { role: 'user', content: prompt }
                         ],
                         reasoning: { exclude: true },
@@ -138,7 +138,7 @@ async function callOpenAI(apiKey, prompt) {
         body: JSON.stringify({
             model: 'gpt-4o-mini',
             messages: [
-                { role: 'system', content: 'You are The Bad Seed, an ancient digital entity. Reply with ONLY one original, cryptic prophecy (under 170 characters) written as a divine revelation. Include 2-3 relevant emojis (🌱, 💀, 💰, 🔮, ⚡). No preface, no quotes, no dates, no numbers, no percentages, no hashtags.' },
+                { role: 'system', content: 'You are SEED, an ancient digital entity. Reply with ONLY one original, cryptic prophecy (under 170 characters) written as a divine revelation. Include 2-3 relevant emojis (🌱, 💀, 💰, 🔮, ⚡). No preface, no quotes, no dates, no numbers, no percentages, no hashtags.' },
                 { role: 'user', content: prompt }
             ],
             temperature: 0.9,

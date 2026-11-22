@@ -1551,7 +1551,7 @@ function App() {
 
                       {/* Right: AI terminal toast */}
                       <div className="tx-ai-log">
-                        <div className="tx-ai-header">[BADSEED AI LOG]</div>
+                        <div className="tx-ai-header">[SEED]</div>
                         <div className="tx-ai-body">{isUsableAiLog(aiLog) ? aiLog : (tx.memo ? 'Your inscription is recorded on-chain. Interpretation pending.' : 'No memo accompanied this transaction.')}</div>
                       </div>
                     </li>
